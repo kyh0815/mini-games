@@ -2,11 +2,13 @@
 
 import type { ReactNode } from "react";
 import { Blink, Label11, Panel, Screen } from "@/components/arcade/panel";
+import { Mascot } from "@/components/arcade/mascot";
 import { PixelAvatar } from "@/components/arcade/pixel-avatar";
 import { Crown, UserX } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getGame } from "@/lib/games";
+import { useT } from "@/lib/i18n";
 import type { GameAction, RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -17,12 +19,13 @@ export type GameProps<V extends RoomView = RoomView> = {
 };
 
 export function Rules({ rules }: { rules: string[] }) {
+  const t = useT();
   return (
     <ol className="flex flex-col gap-2.5">
       {rules.map((rule, i) => (
         <li key={rule} className="flex gap-3 text-sm/relaxed text-muted-foreground">
           <span className="font-pixel mt-1 w-4 shrink-0 fs-1 text-game">{i + 1}</span>
-          {rule}
+          {t(rule)}
         </li>
       ))}
     </ol>
@@ -50,6 +53,7 @@ export function Lobby({
   const isHost = view.hostId === view.you;
   const online = view.players.filter((p) => p.online).length;
   const missing = game.minPlayers - online;
+  const t = useT();
 
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
@@ -72,15 +76,15 @@ export function Lobby({
               <span className="min-w-0 flex-1 truncate font-medium">
                 {p.name}
                 {p.id === view.you && (
-                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">나</span>
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">{t("나")}</span>
                 )}
               </span>
               {p.id === view.hostId && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Crown aria-label="방장" className="size-5 text-pop-yellow" />
+                    <Crown aria-label={t("방장")} className="size-5 text-pop-yellow" />
                   </TooltipTrigger>
-                  <TooltipContent>방장</TooltipContent>
+                  <TooltipContent>{t("방장")}</TooltipContent>
                 </Tooltip>
               )}
               {isHost && p.id !== view.you && (
@@ -89,20 +93,20 @@ export function Lobby({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label={`${p.name} 내보내기`}
+                      aria-label={t("{name} 내보내기", { name: p.name })}
                       onClick={() => send({ type: "kick", target: p.id })}
                     >
                       <UserX />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>내보내기</TooltipContent>
+                  <TooltipContent>{t("내보내기")}</TooltipContent>
                 </Tooltip>
               )}
             </li>
           ))}
           {view.players.length < game.maxPlayers && (
             <li className="flex h-14 items-center justify-center border-2 border-dashed border-border text-sm text-muted-foreground">
-              초대 링크를 공유해 보세요
+              {t("초대 링크를 공유해 보세요")}
             </li>
           )}
         </ul>
@@ -111,12 +115,12 @@ export function Lobby({
             <>
               {children}
               <Button variant="game" size="lg" onClick={onStart} disabled={missing > 0} className="w-full">
-                {missing > 0 ? `${missing}명 더 모이면 시작할 수 있습니다` : "게임 시작"}
+                {missing > 0 ? t("{n}명 더 모이면 시작할 수 있습니다", { n: missing }) : t("게임 시작")}
               </Button>
             </>
           ) : (
             <p className="py-2 text-center text-sm text-muted-foreground">
-              방장이 게임을 시작하기를 기다리는 중입니다.
+              {t("방장이 게임을 시작하기를 기다리는 중입니다.")}
             </p>
           )}
         </div>
@@ -145,10 +149,16 @@ export function Result({
   children?: ReactNode;
 }) {
   const isHost = view.hostId === view.you;
+  const t = useT();
   return (
     <Screen className="mx-auto w-full max-w-2xl">
       <div className="flex flex-col items-center gap-6 px-5 py-9 text-center">
         <div className="flex animate-pop flex-col items-center gap-2">
+          <Mascot
+            mood={tone === "win" ? "happy" : tone === "lose" ? "sad" : "smile"}
+            bob={tone === "win"}
+            className="mb-2 w-14"
+          />
           <Label11
             className={cn(tone === "win" && "text-pop-green", tone === "lose" && "text-pop-red")}
           >
@@ -160,10 +170,10 @@ export function Result({
         {children && <div className="w-full text-left">{children}</div>}
         {isHost ? (
           <Button size="lg" onClick={() => send({ type: "reset" })}>
-            한 판 더
+            {t("한 판 더")}
           </Button>
         ) : (
-          <p className="text-sm text-muted-foreground">방장이 다음 판을 준비하는 중입니다.</p>
+          <p className="text-sm text-muted-foreground">{t("방장이 다음 판을 준비하는 중입니다.")}</p>
         )}
       </div>
     </Screen>

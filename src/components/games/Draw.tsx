@@ -13,6 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { COLOR_NAMES, DRAW_COLORS, ERASER_SIZE, PAPER, PEN_SIZE, SIZE_MAX, SIZE_MIN } from "@/lib/draw";
 import { drawStore } from "@/lib/draw-store";
+import { useLang, useT } from "@/lib/i18n";
 import type { RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { DrawCanvas } from "./DrawCanvas";
@@ -20,10 +21,11 @@ import { Lobby, Option, RankRow, Result, type GameProps } from "./shared";
 
 type View = Extract<RoomView, { game: "draw" }>;
 
-/** 글자 수만큼의 빈칸. 힌트가 열리면 초성이 채워집니다. */
+/** 글자 수만큼의 빈칸. 힌트가 열리면 초성(일본어는 첫 글자)이 채워집니다. */
 function Mask({ text }: { text: string }) {
+  const t = useT();
   return (
-    <span className="flex flex-wrap justify-center gap-1.5" aria-label={`${Array.from(text).length}글자`}>
+    <span className="flex flex-wrap justify-center gap-1.5" aria-label={t("{n}글자", { n: Array.from(text).length })}>
       {Array.from(text).map((ch, i) =>
         ch === " " ? (
           <span key={i} className="w-3" />
@@ -42,6 +44,8 @@ function Mask({ text }: { text: string }) {
 
 function Chat({ view, send, nameOf }: GameProps<View>) {
   const s = view.state;
+  const t = useT();
+  const lang = useLang();
   const [text, setText] = useState("");
   const listRef = useRef<HTMLOListElement>(null);
   const lastId = s.chat[s.chat.length - 1]?.id ?? 0;
@@ -63,7 +67,7 @@ function Chat({ view, send, nameOf }: GameProps<View>) {
     <Panel label="CHAT" className="flex min-h-0 flex-col">
       <ol ref={listRef} className="flex h-56 flex-col gap-1 overflow-y-auto p-3 text-sm lg:h-72">
         {s.chat.length === 0 && (
-          <li className="m-auto text-center text-muted-foreground">정답을 여기에 입력하세요.</li>
+          <li className="m-auto text-center text-muted-foreground">{t("정답을 여기에 입력하세요.")}</li>
         )}
         {s.chat.map((m) =>
           m.kind === "chat" ? (
@@ -79,7 +83,9 @@ function Chat({ view, send, nameOf }: GameProps<View>) {
                 m.kind === "correct" ? "text-pop-green" : "text-pop-yellow",
               )}
             >
-              {m.text}
+              {m.kind === "correct"
+                ? t("{name} 님 정답! +{points}점", { name: nameOf(m.playerId), points: m.points })
+                : t("시간 종료. 정답은 '{word}'", { word: m.word[lang] })}
             </li>
           ),
         )}
@@ -89,15 +95,15 @@ function Chat({ view, send, nameOf }: GameProps<View>) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={
-            blocked ? "그리는 중에는 채팅할 수 없습니다" : "정답 또는 채팅"
+            blocked ? t("그리는 중에는 채팅할 수 없습니다") : t("정답 또는 채팅")
           }
-          aria-label="정답 또는 채팅"
+          aria-label={t("정답 또는 채팅")}
           maxLength={30}
           autoComplete="off"
           disabled={blocked}
           className="h-10"
         />
-        <Button type="submit" size="icon" variant="game" disabled={blocked} aria-label="보내기">
+        <Button type="submit" size="icon" variant="game" disabled={blocked} aria-label={t("보내기")}>
           <Send />
         </Button>
       </form>
@@ -122,9 +128,10 @@ function Toolbar({
   onEraser: (on: boolean) => void;
   send: GameProps["send"];
 }) {
+  const t = useT();
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t-2 border-ink bg-card p-3">
-      <div role="radiogroup" aria-label="색" className="flex gap-1.5">
+      <div role="radiogroup" aria-label={t("색")} className="flex gap-1.5">
         {DRAW_COLORS.map((c, i) => {
           const on = !eraser && color === c;
           return (
@@ -133,7 +140,8 @@ function Toolbar({
               type="button"
               role="radio"
               aria-checked={on}
-              aria-label={COLOR_NAMES[i]}
+              // 색 이름은 자료에서 오므로 그대로 넘겨 옮깁니다.
+              aria-label={t(COLOR_NAMES[i])}
               onClick={() => {
                 onEraser(false);
                 onColor(c);
@@ -161,7 +169,7 @@ function Toolbar({
           />
         </span>
         <Slider
-          aria-label={eraser ? "지우개 굵기" : "붓 굵기"}
+          aria-label={eraser ? t("지우개 굵기") : t("붓 굵기")}
           min={SIZE_MIN}
           max={SIZE_MAX}
           step={1}
@@ -177,21 +185,21 @@ function Toolbar({
             <Button
               variant={eraser ? "secondary" : "outline"}
               size="icon"
-              aria-label="지우개"
+              aria-label={t("지우개")}
               aria-pressed={eraser}
               onClick={() => onEraser(!eraser)}
             >
               {eraser ? <Pencil /> : <Eraser />}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{eraser ? "펜으로" : "지우개"}</TooltipContent>
+          <TooltipContent>{eraser ? t("펜으로") : t("지우개")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="outline"
               size="icon"
-              aria-label="되돌리기"
+              aria-label={t("되돌리기")}
               onClick={() => {
                 drawStore.undo();
                 send({ type: "undo" });
@@ -200,14 +208,14 @@ function Toolbar({
               <Undo />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>되돌리기</TooltipContent>
+          <TooltipContent>{t("되돌리기")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="outline"
               size="icon"
-              aria-label="전체 지우기"
+              aria-label={t("전체 지우기")}
               onClick={() => {
                 drawStore.reset([]);
                 send({ type: "clear" });
@@ -216,7 +224,7 @@ function Toolbar({
               <Trash />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>전체 지우기</TooltipContent>
+          <TooltipContent>{t("전체 지우기")}</TooltipContent>
         </Tooltip>
       </div>
     </div>
@@ -225,6 +233,8 @@ function Toolbar({
 
 export function Draw({ view, send, nameOf }: GameProps<View>) {
   const s = view.state;
+  const t = useT();
+  const lang = useLang();
   const [category, setCategory] = useState("all");
   const [cycles, setCycles] = useState("1");
   const [drawSeconds, setDrawSeconds] = useState("80");
@@ -249,47 +259,47 @@ export function Draw({ view, send, nameOf }: GameProps<View>) {
           })
         }
       >
-        <Option label="주제">
+        <Option label={t("주제")}>
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-40" aria-label="주제">
+            <SelectTrigger className="w-40" aria-label={t("주제")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">전체</SelectItem>
+              <SelectItem value="all">{t("전체")}</SelectItem>
               {s.categories.map((c) => (
                 <SelectItem key={c.key} value={c.key}>
-                  {c.label}
+                  {t(c.label)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Option>
-        <Option label="한 사람당 그리는 횟수">
+        <Option label={t("한 사람당 그리는 횟수")}>
           <ToggleGroup
             type="single"
             variant="outline"
-            aria-label="한 사람당 그리는 횟수"
+            aria-label={t("한 사람당 그리는 횟수")}
             value={cycles}
             onValueChange={(v) => v && setCycles(v)}
           >
             {["1", "2", "3"].map((n) => (
               <ToggleGroupItem key={n} value={n}>
-                {n}번
+                {t("{n}번", { n })}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
         </Option>
-        <Option label="그리는 시간">
+        <Option label={t("그리는 시간")}>
           <ToggleGroup
             type="single"
             variant="outline"
-            aria-label="그리는 시간"
+            aria-label={t("그리는 시간")}
             value={drawSeconds}
             onValueChange={(v) => v && setDrawSeconds(v)}
           >
             {["60", "80", "100"].map((n) => (
               <ToggleGroupItem key={n} value={n}>
-                {n}초
+                {t("{n}초", { n })}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
@@ -310,8 +320,8 @@ export function Draw({ view, send, nameOf }: GameProps<View>) {
         view={view}
         send={send}
         tone={!hasWinner ? "neutral" : top.id === view.you ? "win" : "lose"}
-        title={hasWinner ? `${top.name} 우승` : "무승부"}
-        subtitle={hasWinner ? `${top.score}점` : "아무도 점수를 얻지 못했습니다."}
+        title={hasWinner ? t("{name} 우승", { name: top.name }) : t("무승부")}
+        subtitle={hasWinner ? t("{n}점", { n: top.score }) : t("아무도 점수를 얻지 못했습니다.")}
       >
         <ol className="flex flex-col gap-2">
           {ranking.map((p, i) => (
@@ -338,17 +348,17 @@ export function Draw({ view, send, nameOf }: GameProps<View>) {
             <div className="flex min-w-0 flex-1 justify-center">
               {s.phase === "choose" ? (
                 <span className="truncate text-sm text-muted-foreground">
-                  {s.youAreDrawer ? "그릴 단어를 고르세요" : `${drawer} 님이 단어를 고르는 중…`}
+                  {s.youAreDrawer ? t("그릴 단어를 고르세요") : t("{name} 님이 단어를 고르는 중…", { name: drawer })}
                 </span>
               ) : s.word ? (
                 <span className="flex items-baseline gap-2">
                   <span className="text-xs text-muted-foreground">
-                    {s.phase === "reveal" ? "정답" : "제시어"}
+                    {s.phase === "reveal" ? t("정답") : t("제시어")}
                   </span>
-                  <span className="font-pixel fs-2 text-game">{s.word}</span>
+                  <span className="font-pixel fs-2 text-game">{s.word[lang]}</span>
                 </span>
               ) : (
-                <Mask text={s.mask} />
+                <Mask text={s.mask[lang]} />
               )}
             </div>
             <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
@@ -370,11 +380,11 @@ export function Draw({ view, send, nameOf }: GameProps<View>) {
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-inset/95 p-6 text-center">
               {s.choices ? (
                 <>
-                  <p className="text-sm text-muted-foreground">그리기 쉬운 단어를 고르세요.</p>
+                  <p className="text-sm text-muted-foreground">{t("그리기 쉬운 단어를 고르세요.")}</p>
                   <div className="flex flex-wrap justify-center gap-3">
                     {s.choices.map((word, i) => (
-                      <Button key={word} variant="game" size="lg" onClick={() => send({ type: "choose", index: i })}>
-                        {word}
+                      <Button key={word.ko} variant="game" size="lg" onClick={() => send({ type: "choose", index: i })}>
+                        {word[lang]}
                       </Button>
                     ))}
                   </div>
@@ -382,7 +392,7 @@ export function Draw({ view, send, nameOf }: GameProps<View>) {
               ) : (
                 <>
                   <PixelAvatar seed={s.drawerId ?? ""} className="size-14" />
-                  <p className="font-semibold">{drawer} 님이 그릴 차례입니다</p>
+                  <p className="font-semibold">{t("{name} 님이 그릴 차례입니다", { name: drawer })}</p>
                 </>
               )}
             </div>
@@ -420,13 +430,13 @@ export function Draw({ view, send, nameOf }: GameProps<View>) {
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">
                     {p.name}
                     {p.id === view.you && (
-                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">나</span>
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">{t("나")}</span>
                     )}
                   </span>
                   {p.id === s.drawerId ? (
-                    <Pencil aria-label="그리는 사람" className="size-4 text-game" />
+                    <Pencil aria-label={t("그리는 사람")} className="size-4 text-game" />
                   ) : (
-                    p.id in s.guessed && <Check aria-label="맞힘" className="size-4 text-pop-green" />
+                    p.id in s.guessed && <Check aria-label={t("맞힘")} className="size-4 text-pop-green" />
                   )}
                   {gain ? <span className="text-xs text-pop-green tabular-nums">+{gain}</span> : null}
                   <span className="font-pixel w-9 text-right fs-15 tabular-nums">{p.score}</span>

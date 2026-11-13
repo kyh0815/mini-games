@@ -28,7 +28,7 @@ export type LiarView = {
   youPlaying: boolean;
   youAreLiar: boolean;
   /** 시민에게만, 그리고 결과 단계에서 공개 */
-  word: string | null;
+  word: Word | null;
   voted: string[];
   yourVote: string | null;
   /** 결과 단계에서만 공개 */
@@ -78,12 +78,16 @@ export type Stroke = {
   points: number[];
 };
 
-export type DrawChat = {
-  id: number;
-  playerId: string | null;
-  kind: "chat" | "correct" | "system";
-  text: string;
-};
+/** 단어 게임의 제시어. 각자 고른 언어의 표기로 보입니다. */
+export type Word = { ko: string; ja: string };
+
+export type DrawChat = { id: number; playerId: string | null } & (
+  | { kind: "chat"; text: string }
+  /** 정답을 맞혔다는 알림 */
+  | { kind: "correct"; points: number }
+  /** 시간이 다 되어 정답을 공개한다는 알림 */
+  | { kind: "timeout"; word: Word }
+);
 
 export type DrawView = {
   phase: "lobby" | "choose" | "draw" | "reveal" | "result";
@@ -93,11 +97,11 @@ export type DrawView = {
   drawerId: string | null;
   youAreDrawer: boolean;
   /** 그리는 사람에게만, 고르는 단계에서만 */
-  choices: string[] | null;
+  choices: Word[] | null;
   /** 그리는 사람에게, 그리고 공개 단계에서 모두에게 */
-  word: string | null;
-  /** 글자 수만 보이는 빈칸. 힌트가 열리면 초성으로 바뀝니다. */
-  mask: string;
+  word: Word | null;
+  /** 글자 수만 보이는 빈칸. 힌트가 열리면 한국어는 초성, 일본어는 첫 글자가 보입니다. */
+  mask: Word;
   deadline: number;
   totalMs: number;
   /** 이번 차례에 맞힌 사람과 얻은 점수. 먼저 맞힌 한 명뿐입니다. */
@@ -178,6 +182,27 @@ export type MemoryView = SoloView & {
   finishedMs: number | null;
 };
 
+export type SequenceView = SoloView & {
+  phase: "lobby" | "play" | "result";
+  /** 카드 수 */
+  cards: number;
+  /** 이번에 외울 장수 */
+  length: number;
+  /** 뒤집히는 순서대로 나열한 카드 번호 */
+  order: number[];
+  /** 첫 카드가 뒤집히는 시각과, 한 장이 보이는 간격 */
+  showAt: number;
+  stepMs: number;
+  /** 이 시각부터 누를 수 있습니다. */
+  inputAt: number;
+  /** 지금까지 맞게 누른 장수 */
+  progress: number;
+  /** 성공한 가장 긴 장수 */
+  cleared: number;
+  /** 틀렸을 때: 누른 카드와 눌러야 했던 카드 */
+  miss: { picked: number; expected: number } | null;
+};
+
 export type ReactionView = SoloView & {
   phase: "lobby" | "wait" | "go" | "early" | "between" | "result";
   round: number;
@@ -242,6 +267,7 @@ export type RoomView =
   | (Base & { game: "reaction"; state: ReactionView })
   | (Base & { game: "aim"; state: AimView })
   | (Base & { game: "stairs"; state: StairsView })
+  | (Base & { game: "sequence"; state: SequenceView })
   | (Base & { game: "draw"; state: DrawView })
   | (Base & { game: "chosung"; state: ChosungView })
   | (Base & { game: "liar"; state: LiarView })

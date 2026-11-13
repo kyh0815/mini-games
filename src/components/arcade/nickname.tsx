@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Mascot } from "./mascot";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { post } from "@/lib/client";
+import { tNow, useT } from "@/lib/i18n";
 import { reconnectLobby, setLobbyYou, useLobby } from "@/lib/lobby-store";
 
 // 닉네임 창은 헤더, 방 만들기, 방 입장 등 여러 곳에서 열 수 있어 열림 상태를 한곳에 둡니다.
@@ -55,6 +57,7 @@ export function NicknameDialog() {
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const t = useT();
 
   // 처음 온 사람에게는 한 번 먼저 물어봅니다.
   const prompted = useRef(false);
@@ -78,7 +81,7 @@ export function NicknameDialog() {
       waiters = [];
       setOpen(false);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(tNow((err as Error).message));
     } finally {
       setBusy(false);
     }
@@ -88,9 +91,10 @@ export function NicknameDialog() {
     <Dialog open={isOpen} onOpenChange={setOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{lobby.you ? "닉네임 바꾸기" : "닉네임 정하기"}</DialogTitle>
+          <Mascot mood="happy" blink className="mb-1 w-12" />
+          <DialogTitle>{lobby.you ? t("닉네임 바꾸기") : t("닉네임 정하기")}</DialogTitle>
           <DialogDescription>
-            방과 접속자 목록에 이 이름으로 표시됩니다. 언제든 바꿀 수 있습니다.
+            {t("방과 접속자 목록에 이 이름으로 표시됩니다. 언제든 바꿀 수 있습니다.")}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="flex flex-col gap-4">
@@ -98,14 +102,14 @@ export function NicknameDialog() {
             ref={inputRef}
             key={lobby.you?.name ?? ""}
             defaultValue={lobby.you?.name ?? ""}
-            aria-label="닉네임"
-            placeholder="닉네임 (1~12자)"
+            aria-label={t("닉네임")}
+            placeholder={t("닉네임 (1~12자)")}
             maxLength={12}
             autoComplete="off"
             autoFocus
           />
           <Button type="submit" disabled={busy}>
-            {lobby.you ? "바꾸기" : "시작하기"}
+            {lobby.you ? t("바꾸기") : t("시작하기")}
           </Button>
         </form>
       </DialogContent>

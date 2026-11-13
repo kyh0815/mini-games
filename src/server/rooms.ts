@@ -3,8 +3,9 @@ import { getGame, type GameSlug } from "@/lib/games";
 import type { GameAction, RoomView } from "@/lib/types";
 import { GameError } from "./errors";
 import { gameModules } from "./games";
+import { pruneLimits } from "./http";
 import { registerRoomSource, touchLobby } from "./lobby";
-import { pruneUsers, type User } from "./session";
+import { ownerOf, pruneUsers, type User } from "./session";
 
 export { GameError };
 
@@ -12,6 +13,8 @@ export { GameError };
 export type Player = {
   id: string;
   name: string;
+  /** 기록의 주인을 가리는 값 (기기 기준) */
+  owner: string;
   connections: number;
 };
 
@@ -37,11 +40,15 @@ export type Room = {
   listeners: Map<symbol, Listener>;
   timer: ReturnType<typeof setTimeout> | null;
   lastActive: number;
+  /** 로비에 보이는 정보의 요약. 이것이 바뀔 때만 로비에 알립니다. */
+  lobbyKey: string;
 };
 
 const MAX_ROOMS = 300;
 /** 모두 나간 방을 지우기까지의 시간 */
 const EMPTY_ROOM_TTL_MS = 60_000;
+/** 창만 열어 둔 채 아무 동작이 없는 방을 닫기까지의 시간 */
+const IDLE_ROOM_TTL_MS = 3 * 60 * 60_000;
 /** 새로고침·잠깐의 끊김을 봐주는 시간 */
 const LEAVE_GRACE_MS = 6_000;
 // 헷갈리는 글자(0/O, 1/I 등) 제외
@@ -95,9 +102,13 @@ if (!store.sweeper) {
   store.sweeper = setInterval(() => {
     const now = Date.now();
     for (const room of [...store.rooms.values()]) {
-      if (room.listeners.size === 0 && now - room.lastActive > EMPTY_ROOM_TTL_MS) deleteRoom(room);
+      const idle = now - room.lastActive;
+      if (idle > IDLE_ROOM_TTL_MS || (room.listeners.size === 0 && idle > EMPTY_ROOM_TTL_MS)) {
+        deleteRoom(room);
+      }
     }
     pruneUsers();
+    pruneLimits();
   }, 15_000);
   store.sweeper.unref?.();
 }
@@ -118,13 +129,14 @@ export function createRoom(game: GameSlug, user: User, password: string | null =
     code: newCode(),
     game,
     hostId: user.id,
-    players: [{ id: user.id, name: user.name, connections: 0 }],
+    players: [{ id: user.id, name: user.name, owner: ownerOf(user), connections: 0 }],
     banned: new Set(),
     lock: null,
     state: gameModules[game].init(),
     listeners: new Map(),
     timer: null,
     lastActive: Date.now(),
+    lobbyKey: "",
   };
   // 혼자 하는 게임은 어차피 다른 사람이 들어올 수 없어 잠그지 않습니다.
   if (password && !getGame(game)?.solo) {
@@ -157,7 +169,7 @@ export function joinRoom(room: Room, user: User, password: string | null = null)
   }
   const max = getGame(room.game)?.maxPlayers ?? 12;
   if (room.players.length >= max) throw new GameError(`방이 가득 찼습니다. (최대 ${max}명)`);
-  const player: Player = { id: user.id, name: user.name, connections: 0 };
+  const player: Player = { id: user.id, name: user.name, owner: ownerOf(user), connections: 0 };
   room.players.push(player);
   room.lastActive = Date.now();
   broadcast(room);
@@ -200,7 +212,12 @@ export function broadcast(room: Room): void {
       // 끊긴 연결은 unsubscribe에서 정리됩니다.
     }
   }
-  touchLobby();
+  // 게임 중에는 상태가 1초에도 여러 번 바뀝니다. 로비에 보이는 정보가 달라졌을 때만 알립니다.
+  const key = `${room.hostId}|${inLobby(room)}|${room.players.map((p) => `${p.id}${p.connections > 0 ? "+" : "-"}`).join()}`;
+  if (key !== room.lobbyKey) {
+    room.lobbyKey = key;
+    touchLobby();
+  }
 }
 
 /** 화면 상태 전체를 다시 보내지 않고 작은 이벤트만 흘려보냅니다. */

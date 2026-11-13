@@ -6,16 +6,18 @@ import { Countdown, LedTimer } from "@/components/arcade/timer";
 import { audio } from "@/lib/audio";
 import { post } from "@/lib/client";
 import { useNow } from "@/lib/clock";
+import { useT } from "@/lib/i18n";
 import type { RoomView } from "@/lib/types";
 import type { GameProps } from "./shared";
 import { SoloIntro, SoloResult, SoloShell } from "./solo";
 
 type View = Extract<RoomView, { game: "aim" }>;
 
-const PLAY_MS = 30_000;
+const PLAY_MS = 20_000;
 
 function Range({ view }: { view: View }) {
   const s = view.state;
+  const t = useT();
   const now = useNow();
   const [score, setScore] = useState({ hits: 0, misses: 0 });
   const latest = useRef({ hits: 0, misses: 0, sent: -1, final: false });
@@ -59,7 +61,8 @@ function Range({ view }: { view: View }) {
       <div className="flex flex-col gap-4 p-4 sm:p-6">
         <div className="flex items-end justify-between">
           <span className="flex items-baseline gap-1.5 text-sm text-muted-foreground">
-            <span className="font-pixel fs-2 text-foreground tabular-nums">{score.hits}</span>점
+            <span className="font-pixel fs-2 text-foreground tabular-nums">{score.hits}</span>
+            {t("점")}
           </span>
           <Label11 className="tabular-nums">
             ACC {shots > 0 ? Math.round((score.hits / shots) * 100) : 100}%
@@ -82,7 +85,7 @@ function Range({ view }: { view: View }) {
           {playing && (
             <button
               type="button"
-              aria-label="표적"
+              aria-label={t("표적")}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 audio.play("blip");
@@ -96,14 +99,14 @@ function Range({ view }: { view: View }) {
           )}
           {over && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-              기록을 올리는 중…
+              {t("기록을 올리는 중…")}
             </div>
           )}
         </div>
         {started ? (
           <LedTimer deadline={s.deadline} totalMs={PLAY_MS} />
         ) : (
-          <p className="text-center text-xs text-muted-foreground">표적이 나타나면 최대한 빨리 누르세요.</p>
+          <p className="text-center text-xs text-muted-foreground">{t("표적이 나타나면 최대한 빨리 누르세요.")}</p>
         )}
       </div>
     </Screen>
@@ -112,9 +115,10 @@ function Range({ view }: { view: View }) {
 
 export function Aim({ view, send }: GameProps<View>) {
   const s = view.state;
+  const t = useT();
   if (s.phase === "lobby") {
     return (
-      <SoloShell view={view} boardKey="aim">
+      <SoloShell view={view} boardKey="aim-20">
         <SoloIntro view={view} onStart={() => send({ type: "start" })} />
       </SoloShell>
     );
@@ -122,10 +126,13 @@ export function Aim({ view, send }: GameProps<View>) {
   if (s.phase === "result") {
     const shots = s.hits + s.misses;
     return (
-      <SoloShell view={view} boardKey="aim">
+      <SoloShell view={view} boardKey="aim-20">
         <SoloResult
           last={s.last}
-          detail={`명중률 ${shots > 0 ? Math.round((s.hits / shots) * 100) : 0}% · 빗나감 ${s.misses}번`}
+          detail={t("명중률 {acc}% · 빗나감 {n}번", {
+            acc: shots > 0 ? Math.round((s.hits / shots) * 100) : 0,
+            n: s.misses,
+          })}
           onRetry={() => send({ type: "start" })}
           onBack={() => send({ type: "reset" })}
         />
@@ -133,7 +140,7 @@ export function Aim({ view, send }: GameProps<View>) {
     );
   }
   return (
-    <SoloShell view={view} boardKey="aim">
+    <SoloShell view={view} boardKey="aim-20">
       <Range key={s.startAt} view={view} />
     </SoloShell>
   );

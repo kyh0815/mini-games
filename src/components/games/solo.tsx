@@ -1,22 +1,25 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Mascot } from "@/components/arcade/mascot";
 import { Label11, Panel, Screen } from "@/components/arcade/panel";
 import { Crown, Trophy } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { getGame } from "@/lib/games";
+import { rich, useT } from "@/lib/i18n";
 import { formatRecord, getBoard, type BoardRows } from "@/lib/records";
 import type { RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Rules } from "./shared";
 
-/** 순위표 하나. 내 이름이 있으면 강조합니다. */
-export function RecordList({ rows, boardKey, me }: { rows: BoardRows["rows"]; boardKey: string; me?: string }) {
+/** 순위표 하나. 이 기기에서 세운 기록은 강조합니다. */
+export function RecordList({ rows, boardKey }: { rows: BoardRows["rows"]; boardKey: string }) {
   const board = getBoard(boardKey)!;
+  const t = useT();
   if (rows.length === 0) {
     return (
       <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-        아직 기록이 없습니다. 첫 기록의 주인공이 되어 보세요.
+        {t("아직 기록이 없습니다. 첫 기록의 주인공이 되어 보세요.")}
       </p>
     );
   }
@@ -24,10 +27,11 @@ export function RecordList({ rows, boardKey, me }: { rows: BoardRows["rows"]; bo
     <ol className="flex flex-col p-2">
       {rows.map((row, i) => (
         <li
-          key={row.name}
+          // 닉네임은 겹칠 수 있어 올린 시각을 함께 씁니다.
+          key={`${row.at}-${row.name}`}
           className={cn(
             "flex h-9 items-center gap-3 px-2 text-sm",
-            row.name === me && "bg-accent",
+            row.mine && "bg-accent",
           )}
         >
           <span
@@ -41,9 +45,9 @@ export function RecordList({ rows, boardKey, me }: { rows: BoardRows["rows"]; bo
           <span className="flex min-w-0 flex-1 items-center gap-1.5 font-medium">
             <span className="truncate">{row.name}</span>
             {/* 1등에게만 왕관을 씌웁니다 */}
-            {i === 0 && <Crown aria-label="1위" className="size-4 shrink-0 text-pop-yellow" />}
+            {i === 0 && <Crown aria-label={t("{n}위", { n: 1 })} className="size-4 shrink-0 text-pop-yellow" />}
           </span>
-          <span className="font-pixel fs-15 tabular-nums">{formatRecord(board, row.value)}</span>
+          <span className="font-pixel fs-15 tabular-nums">{formatRecord(board, row.value, t)}</span>
         </li>
       ))}
     </ol>
@@ -62,15 +66,17 @@ export function SoloShell({
 }) {
   const state = view.state as { boards?: BoardRows[] };
   const rows = state.boards?.find((b) => b.key === boardKey)?.rows ?? [];
-  const me = view.players.find((p) => p.id === view.you)?.name;
+  const t = useT();
+  // 순위표 이름의 뒤쪽(난이도)만 보여 줍니다.
+  const level = getBoard(boardKey)?.label.split(" · ")[1];
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
       <div className="min-w-0">{children}</div>
       <Panel
         label="HALL OF FAME"
-        action={<span className="text-xs text-muted-foreground">{getBoard(boardKey)?.label.split(" · ")[1]}</span>}
+        action={<span className="text-xs text-muted-foreground">{level ? t(level) : null}</span>}
       >
-        <RecordList rows={rows} boardKey={boardKey} me={me} />
+        <RecordList rows={rows} boardKey={boardKey} />
       </Panel>
     </div>
   );
@@ -87,13 +93,14 @@ export function SoloIntro({
   children?: ReactNode;
 }) {
   const game = getGame(view.game)!;
+  const t = useT();
   return (
     <Screen>
       <div className="flex flex-col gap-6 p-5 sm:p-7">
         <Rules rules={game.rules} />
         {children && <div className="flex flex-col gap-4 border-t-2 border-border pt-5">{children}</div>}
         <Button variant="game" size="lg" onClick={onStart}>
-          시작
+          {t("시작")}
         </Button>
       </div>
     </Screen>
@@ -115,15 +122,17 @@ export function SoloResult({
   children?: ReactNode;
 }) {
   const board = last ? getBoard(last.board) : undefined;
+  const t = useT();
   return (
     <Screen>
       <div className="flex flex-col items-center gap-6 px-5 py-9 text-center">
         <div className="flex animate-pop flex-col items-center gap-2">
+          <Mascot mood={last?.best ? "wow" : "smile"} bob={last?.best} className="mb-2 w-14" />
           <Label11 className={cn(last?.best && "text-pop-green")}>
             {last?.best ? "NEW RECORD" : "RESULT"}
           </Label11>
           <p className="font-pixel fs-4 text-foreground">
-            {last && board ? formatRecord(board, last.value) : "-"}
+            {last && board ? formatRecord(board, last.value, t) : "-"}
           </p>
           {detail && <p className="text-sm text-muted-foreground">{detail}</p>}
         </div>
@@ -131,18 +140,20 @@ export function SoloResult({
           <p className="flex items-center gap-2 border-2 border-border px-3 py-2 text-left text-sm">
             <Trophy className="size-5 shrink-0 text-pop-yellow" />
             <span>
-              이번 기록은 명예의 전당 <b className="font-semibold">{last.rank}위</b>에 해당합니다.
-              {!last.best && <span className="text-muted-foreground"> 내 최고 기록은 그대로입니다.</span>}
+              {rich(t("이번 기록은 명예의 전당 <b>{rank}위</b>에 해당합니다.", { rank: last.rank }), {
+                b: (s) => <b className="font-semibold">{s}</b>,
+              })}
+              {!last.best && <span className="text-muted-foreground"> {t("내 최고 기록은 그대로입니다.")}</span>}
             </span>
           </p>
         )}
         {children}
         <div className="flex gap-3">
           <Button variant="outline" onClick={onBack}>
-            설정으로
+            {t("설정으로")}
           </Button>
           <Button variant="game" size="lg" onClick={onRetry}>
-            다시 하기
+            {t("다시 하기")}
           </Button>
         </div>
       </div>

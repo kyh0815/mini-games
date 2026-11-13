@@ -5,6 +5,7 @@ import { Label11, Panel, Screen } from "@/components/arcade/panel";
 import { LedTimer } from "@/components/arcade/timer";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { audio } from "@/lib/audio";
+import { rich, useT } from "@/lib/i18n";
 import type { Mark, RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Lobby, Option, RankRow, Result, type GameProps } from "./shared";
@@ -28,6 +29,7 @@ const RANK: Record<Mark, number> = { miss: 0, near: 1, hit: 2 };
 
 export function Word({ view, send, nameOf }: GameProps<View>) {
   const s = view.state;
+  const t = useT();
   const [length, setLength] = useState("5");
   const [draft, setDraft] = useState<string[]>([]);
   const mine = s.boards[view.you];
@@ -67,16 +69,16 @@ export function Word({ view, send, nameOf }: GameProps<View>) {
   if (s.phase === "lobby") {
     return (
       <Lobby view={view} send={send} onStart={() => send({ type: "start", length: Number(length) })}>
-        <Option label="칸 수">
+        <Option label={t("칸 수")}>
           <ToggleGroup
             type="single"
             variant="outline"
-            aria-label="칸 수"
+            aria-label={t("칸 수")}
             value={length}
             onValueChange={(v) => v && setLength(v)}
           >
-            <ToggleGroupItem value="5">5칸</ToggleGroupItem>
-            <ToggleGroupItem value="6">6칸</ToggleGroupItem>
+            <ToggleGroupItem value="5">{t("5칸")}</ToggleGroupItem>
+            <ToggleGroupItem value="6">{t("6칸")}</ToggleGroupItem>
           </ToggleGroup>
         </Option>
       </Lobby>
@@ -101,11 +103,11 @@ export function Word({ view, send, nameOf }: GameProps<View>) {
         view={view}
         send={send}
         tone={!solved || !iPlayed ? "neutral" : winner === view.you ? "win" : "lose"}
-        title={solved ? `${nameOf(winner)} 우승` : "아무도 못 맞혔습니다"}
+        title={solved ? t("{name} 우승", { name: nameOf(winner) }) : t("아무도 못 맞혔습니다")}
         subtitle={
-          <>
-            정답은 <b className="font-semibold text-foreground">{s.answer}</b>
-          </>
+          rich(t("정답은 <b>{answer}</b>", { answer: s.answer ?? "" }), {
+            b: (chunk) => <b className="font-semibold text-foreground">{chunk}</b>,
+          })
         }
       >
         <ol className="flex flex-col gap-2">
@@ -116,12 +118,12 @@ export function Word({ view, send, nameOf }: GameProps<View>) {
                 {b.solvedMs !== null ? (
                   <>
                     <span className="text-sm text-muted-foreground tabular-nums">
-                      {(b.solvedMs / 1000).toFixed(1)}초
+                      {t("{n}초", { n: (b.solvedMs / 1000).toFixed(1) })}
                     </span>
-                    <span className="font-pixel w-14 text-right fs-15 tabular-nums">{b.rows.length}번</span>
+                    <span className="font-pixel w-14 text-right fs-15 tabular-nums">{t("{n}번", { n: b.rows.length })}</span>
                   </>
                 ) : (
-                  <span className="text-sm text-muted-foreground">실패</span>
+                  <span className="text-sm text-muted-foreground">{t("실패")}</span>
                 )}
               </RankRow>
             );
@@ -153,7 +155,7 @@ export function Word({ view, send, nameOf }: GameProps<View>) {
           <div className="w-full">
             <LedTimer deadline={s.deadline} totalMs={s.totalMs} />
           </div>
-          <div className="flex flex-col gap-1.5" role="grid" aria-label="내 판">
+          <div className="flex flex-col gap-1.5" role="grid" aria-label={t("내 판")}>
             {grid.map((row, r) => (
               <div key={r} role="row" className="flex gap-1.5">
                 {Array.from({ length: s.length }, (_, c) => {
@@ -182,17 +184,22 @@ export function Word({ view, send, nameOf }: GameProps<View>) {
 
           {mine?.done ? (
             <p className="text-sm">
-              {mine.solvedMs !== null ? (
-                <span className="font-semibold text-pop-green">맞혔습니다! </span>
-              ) : (
-                <span className="font-semibold text-pop-red">기회를 다 썼습니다. </span>
+              {/* 어순이 달라질 수 있어 한 문장으로 옮깁니다. */}
+              {rich(
+                mine.solvedMs !== null
+                  ? t("<ok>맞혔습니다!</ok> 정답은 <b>{answer}</b>. 다른 사람을 기다리는 중…", { answer: s.answer ?? "" })
+                  : t("<no>기회를 다 썼습니다.</no> 정답은 <b>{answer}</b>. 다른 사람을 기다리는 중…", { answer: s.answer ?? "" }),
+                {
+                  ok: (chunk) => <span className="font-semibold text-pop-green">{chunk}</span>,
+                  no: (chunk) => <span className="font-semibold text-pop-red">{chunk}</span>,
+                  b: (chunk) => <b className="font-semibold">{chunk}</b>,
+                },
               )}
-              정답은 <b className="font-semibold">{s.answer}</b>. 다른 사람을 기다리는 중…
             </p>
           ) : !mine ? (
-            <p className="text-sm text-muted-foreground">게임 도중에 들어와 이번 판은 관전합니다.</p>
+            <p className="text-sm text-muted-foreground">{t("게임 도중에 들어와 이번 판은 관전합니다.")}</p>
           ) : (
-            <div className="flex w-full max-w-lg flex-col items-center gap-1.5" aria-label="자판">
+            <div className="flex w-full max-w-lg flex-col items-center gap-1.5" aria-label={t("자판")}>
               {ROWS.map((row, r) => (
                 <div key={row} className="flex w-full justify-center gap-1">
                   {r === 2 && (
@@ -202,7 +209,7 @@ export function Word({ view, send, nameOf }: GameProps<View>) {
                       disabled={draft.length !== s.length}
                       className="h-11 flex-[1.6] border-2 border-ink bg-game text-xs font-semibold text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
                     >
-                      입력
+                      {t("입력")}
                     </button>
                   )}
                   {Array.from(row).map((key) => {
@@ -225,16 +232,16 @@ export function Word({ view, send, nameOf }: GameProps<View>) {
                     <button
                       type="button"
                       onClick={() => press("back")}
-                      aria-label="지우기"
+                      aria-label={t("지우기")}
                       className="h-11 flex-[1.6] border-2 border-ink bg-secondary text-xs font-semibold outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      지움
+                      {t("지움")}
                     </button>
                   )}
                 </div>
               ))}
               <p className="mt-1 text-xs text-muted-foreground">
-                키보드로도 칠 수 있습니다. 쌍자음·겹모음은 나눠서 입력하세요.
+                {t("키보드로도 칠 수 있습니다. 쌍자음·겹모음은 나눠서 입력하세요.")}
               </p>
             </div>
           )}
@@ -251,7 +258,7 @@ export function Word({ view, send, nameOf }: GameProps<View>) {
                   <span className="truncate font-medium">
                     {nameOf(id)}
                     {id === view.you && (
-                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">나</span>
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">{t("나")}</span>
                     )}
                   </span>
                   <Label11>

@@ -8,6 +8,7 @@ import { Skull, WarningDiamond } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { rich, useT } from "@/lib/i18n";
 import type { RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Lobby, Option, Result, type GameProps } from "./shared";
@@ -15,15 +16,16 @@ import { Lobby, Option, Result, type GameProps } from "./shared";
 type View = Extract<RoomView, { game: "wordchain" }>;
 
 function Lives({ count, max }: { count: number; max: number }) {
+  const t = useT();
   if (count <= 0) {
     return (
       <span className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Skull className="size-4" /> 탈락
+        <Skull className="size-4" /> {t("탈락")}
       </span>
     );
   }
   return (
-    <span className="flex gap-0.5" aria-label={`목숨 ${count}개`}>
+    <span className="flex gap-0.5" aria-label={t("목숨 {n}개", { n: count })}>
       {Array.from({ length: max }, (_, i) => (
         <svg
           key={i}
@@ -41,6 +43,7 @@ function Lives({ count, max }: { count: number; max: number }) {
 
 export function WordChain({ view, send, nameOf }: GameProps<View>) {
   const s = view.state;
+  const t = useT();
   const [turnSeconds, setTurnSeconds] = useState("15");
   const [text, setText] = useState("");
 
@@ -51,17 +54,17 @@ export function WordChain({ view, send, nameOf }: GameProps<View>) {
         send={send}
         onStart={() => send({ type: "start", turnSeconds: Number(turnSeconds) })}
       >
-        <Option label="제한 시간">
+        <Option label={t("제한 시간")}>
           <ToggleGroup
             type="single"
             variant="outline"
-            aria-label="제한 시간"
+            aria-label={t("제한 시간")}
             value={turnSeconds}
             onValueChange={(v) => v && setTurnSeconds(v)}
           >
             {["10", "15", "20"].map((n) => (
               <ToggleGroupItem key={n} value={n}>
-                {n}초
+                {t("{n}초", { n })}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
@@ -89,7 +92,7 @@ export function WordChain({ view, send, nameOf }: GameProps<View>) {
             <span className="min-w-0 flex-1 truncate text-sm font-medium">
               {nameOf(id)}
               {id === view.you && (
-                <span className="ml-1.5 text-xs font-normal text-muted-foreground">나</span>
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">{t("나")}</span>
               )}
             </span>
             <Lives count={s.lives[id]} max={s.maxLives} />
@@ -106,8 +109,8 @@ export function WordChain({ view, send, nameOf }: GameProps<View>) {
         view={view}
         send={send}
         tone={!s.winnerId || !iPlayed ? "neutral" : s.winnerId === view.you ? "win" : "lose"}
-        title={s.winnerId ? `${nameOf(s.winnerId)} 우승` : "승자 없음"}
-        subtitle={s.winnerId ? "마지막까지 살아남았습니다." : undefined}
+        title={s.winnerId ? t("{name} 우승", { name: nameOf(s.winnerId) }) : t("승자 없음")}
+        subtitle={s.winnerId ? t("마지막까지 살아남았습니다.") : undefined}
       >
         {players}
       </Result>
@@ -141,8 +144,11 @@ export function WordChain({ view, send, nameOf }: GameProps<View>) {
               <>
                 <WarningDiamond className="size-5 shrink-0" />
                 {s.lastEvent.type === "timeout"
-                  ? `${nameOf(s.lastEvent.playerId)} 님이 시간 초과로 목숨을 잃었습니다.`
-                  : `'${s.lastEvent.word}' 무효. ${nameOf(s.lastEvent.playerId)} 님이 목숨을 잃었습니다.`}
+                  ? t("{name} 님이 시간 초과로 목숨을 잃었습니다.", { name: nameOf(s.lastEvent.playerId) })
+                  : t("'{word}' 무효. {name} 님이 목숨을 잃었습니다.", {
+                      word: s.lastEvent.word ?? "",
+                      name: nameOf(s.lastEvent.playerId),
+                    })}
               </>
             )}
           </div>
@@ -155,18 +161,20 @@ export function WordChain({ view, send, nameOf }: GameProps<View>) {
                   <span className="text-game">{last.word.slice(-1)}</span>
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {nameOf(last.playerId)} · 다음은{" "}
-                  {s.starts!.map((ch, i) => (
-                    <span key={ch}>
-                      {i > 0 && " 또는 "}
-                      <b className="font-semibold text-game">{ch}</b>
-                    </span>
-                  ))}
-                  (으)로 시작
+                  {nameOf(last.playerId)} ·{" "}
+                  {/* 어순이 달라질 수 있어 한 문장으로 옮긴 뒤 글자만 강조합니다. */}
+                  {rich(
+                    t("다음은 {starts}(으)로 시작", {
+                      starts: s
+                        .starts!.map((ch) => `<b>${ch}</b>`)
+                        .reduce((a, b) => t("{a} 또는 {b}", { a, b })),
+                    }),
+                    { b: (ch) => <b className="font-semibold text-game">{ch}</b> },
+                  )}
                 </p>
               </>
             ) : (
-              <p className="font-pixel animate-pop fs-2 text-foreground">아무 단어로나 시작</p>
+              <p className="font-pixel animate-pop fs-2 text-foreground">{t("아무 단어로나 시작")}</p>
             )}
           </div>
 
@@ -178,18 +186,18 @@ export function WordChain({ view, send, nameOf }: GameProps<View>) {
                 autoFocus
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder={s.starts ? `'${s.starts[0]}'(으)로 시작하는 단어` : "아무 단어"}
-                aria-label="단어"
+                placeholder={s.starts ? t("'{ch}'(으)로 시작하는 단어", { ch: s.starts[0] }) : t("아무 단어")}
+                aria-label={t("단어")}
                 maxLength={10}
                 autoComplete="off"
               />
               <Button type="submit" variant="game">
-                제출
+                {t("제출")}
               </Button>
             </form>
           ) : (
             <p className="flex h-10 items-center justify-center text-sm text-muted-foreground">
-              {nameOf(s.turnId)} 님의 차례입니다.
+              {t("{name} 님의 차례입니다.", { name: nameOf(s.turnId) })}
             </p>
           )}
 
@@ -209,7 +217,7 @@ export function WordChain({ view, send, nameOf }: GameProps<View>) {
                 disabled={objected}
                 onClick={() => send({ type: "object" })}
               >
-                {objected ? "이의 제기함" : "이의 제기"} {s.objections.length}/{s.objectionsNeeded}
+                {objected ? t("이의 제기함") : t("이의 제기")} {s.objections.length}/{s.objectionsNeeded}
               </Button>
             )}
           </div>

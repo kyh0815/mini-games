@@ -9,10 +9,19 @@ export type SoloState = {
 
 /** 기록을 명예의 전당에 올리고, 화면에 보여 줄 결과를 상태에 남깁니다. */
 export function record(room: Room, state: SoloState, board: string, value: number, detail = ""): void {
-  const name = room.players[0]?.name ?? "?";
-  state.last = { board, value, ...submitRecord(board, name, value, detail) };
+  const player = room.players[0];
+  if (!player) return;
+  state.last = {
+    board,
+    value,
+    ...submitRecord(board, { owner: player.owner, name: player.name }, value, detail),
+  };
 }
 
-export function soloView(state: SoloState, boardKeys: string[]): { boards: BoardRows[]; last: SoloState["last"] } {
-  return { boards: boardsFor(boardKeys), last: state.last };
+export function soloView(
+  room: Room,
+  state: SoloState,
+  boardKeys: string[],
+): { boards: BoardRows[]; last: SoloState["last"] } {
+  return { boards: boardsFor(boardKeys, room.players[0]?.owner), last: state.last };
 }

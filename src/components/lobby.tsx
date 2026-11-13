@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { GameIcon } from "@/components/arcade/game-icon";
 import { askNickname } from "@/components/arcade/nickname";
+import { Mascot } from "@/components/arcade/mascot";
 import { Label11, Panel } from "@/components/arcade/panel";
 import { RecordList } from "@/components/games/solo";
 import { PixelAvatar } from "@/components/arcade/pixel-avatar";
@@ -23,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { audio } from "@/lib/audio";
 import { post } from "@/lib/client";
+import { tNow, useT } from "@/lib/i18n";
 import { games, getGame, type Game } from "@/lib/games";
 import { useLobby } from "@/lib/lobby-store";
 import { BOARDS, type BoardRows } from "@/lib/records";
@@ -41,14 +43,16 @@ function useEnterRoom() {
 function RoomList({ onBrowseGames }: { onBrowseGames: () => void }) {
   const lobby = useLobby();
   const enter = useEnterRoom();
+  const t = useT();
   if (!lobby.ready) return <div className="h-[4.5rem] border-2 border-dashed border-border" />;
   if (lobby.rooms.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4 border-2 border-dashed border-border px-4 py-10 text-center">
+        <Mascot mood="sleep" className="w-14" />
         <p className="text-sm text-muted-foreground">
-          아직 열린 방이 없습니다. 게임을 골라 첫 방을 만들어 보세요.
+          {t("아직 열린 방이 없습니다. 게임을 골라 첫 방을 만들어 보세요.")}
         </p>
-        <Button onClick={onBrowseGames}>게임 목록 보기</Button>
+        <Button onClick={onBrowseGames}>{t("게임 목록 보기")}</Button>
       </div>
     );
   }
@@ -67,10 +71,10 @@ function RoomList({ onBrowseGames }: { onBrowseGames: () => void }) {
               <GameIcon game={room.game} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="flex items-center gap-1.5 truncate font-semibold">
-                  {room.locked && <Lock aria-label="비밀번호 방" className="size-4 shrink-0 text-pop-yellow" />}
-                  <span className="truncate">{room.host}의 방</span>
+                  {room.locked && <Lock aria-label={t("비밀번호 방")} className="size-4 shrink-0 text-pop-yellow" />}
+                  <span className="truncate">{t("{name}의 방", { name: room.host })}</span>
                 </span>
-                <span className="truncate text-sm text-muted-foreground">{game.title}</span>
+                <span className="truncate text-sm text-muted-foreground">{t(game.title)}</span>
               </span>
               <span
                 className={cn(
@@ -79,14 +83,14 @@ function RoomList({ onBrowseGames }: { onBrowseGames: () => void }) {
                 )}
               >
                 <span className="size-1.5 bg-current" />
-                {room.playing ? "게임 중" : "대기 중"}
+                {room.playing ? t("게임 중") : t("대기 중")}
               </span>
               <span className="flex w-14 items-center justify-end gap-1.5 text-sm text-muted-foreground tabular-nums">
                 <Users className="size-4" />
                 {room.players}/{room.max}
               </span>
               <span className="text-sm font-semibold text-primary group-hover:underline">
-                {full ? "관전" : "입장"}
+                {full ? t("관전") : t("입장")}
               </span>
             </button>
           </li>
@@ -102,6 +106,7 @@ function GameGrid() {
   const [selected, setSelected] = useState<Game | null>(null);
   const [pending, setPending] = useState(false);
   const [password, setPassword] = useState("");
+  const t = useT();
 
   const create = async (game: Game) => {
     setPending(true);
@@ -116,7 +121,7 @@ function GameGrid() {
       setSelected(null);
       router.push(`/rooms/${code}`);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(tNow((err as Error).message));
     } finally {
       // 이동 여부와 상관없이 풀어 둡니다. 뒤로 돌아왔을 때 버튼이 잠겨 있으면 안 됩니다.
       setPending(false);
@@ -124,8 +129,8 @@ function GameGrid() {
   };
 
   const groups = [
-    { title: "멀티 플레이어", hint: "방을 만들어 함께해요!", list: games.filter((x) => !x.solo) },
-    { title: "1인 플레이어", hint: "명예의 전당에 이름을 올려요!", list: games.filter((x) => x.solo) },
+    { title: t("멀티 플레이어"), hint: t("방을 만들어 함께해요!"), list: games.filter((x) => !x.solo) },
+    { title: t("1인 플레이어"), hint: t("명예의 전당에 이름을 올려요!"), list: games.filter((x) => x.solo) },
   ];
 
   return (
@@ -156,17 +161,17 @@ function GameGrid() {
                       </span>
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-none sm:gap-3">
-                      <span className="font-pixel truncate fs-15 text-foreground sm:fs-2">{game.title}</span>
+                      <span className="font-pixel truncate fs-15 text-foreground sm:fs-2">{t(game.title)}</span>
                       <span className="hidden flex-1 text-sm/relaxed text-muted-foreground sm:block">
-                        {game.description}
+                        {t(game.description)}
                       </span>
-                      <span className="text-xs text-muted-foreground sm:hidden">{game.players}</span>
+                      <span className="text-xs text-muted-foreground sm:hidden">{t(game.players)}</span>
                     </span>
                     <span className="hidden flex-1 sm:block" />
                     <span className="flex items-center justify-between text-sm sm:border-t-2 sm:border-border sm:pt-3">
                       <span className="hidden items-center gap-1.5 text-muted-foreground sm:flex">
                         <Users className="size-4" />
-                        {game.players}
+                        {t(game.players)}
                       </span>
                       <ArrowRight className="size-5 text-game transition-transform group-hover:translate-x-1" />
                     </span>
@@ -192,29 +197,29 @@ function GameGrid() {
             <DialogHeader>
               <div className="flex items-center gap-3">
                 <GameIcon game={selected.slug} className="size-10" />
-                <DialogTitle>{selected.title}</DialogTitle>
+                <DialogTitle>{t(selected.title)}</DialogTitle>
               </div>
               <DialogDescription>
-                {selected.description} · {selected.players}
+                {t(selected.description)} · {t(selected.players)}
               </DialogDescription>
             </DialogHeader>
             <Rules rules={selected.rules} />
             {!selected.solo && (
               <div className="flex flex-col gap-2 border-t-2 border-border pt-4">
-                <Label htmlFor="room-password">비밀번호 (선택)</Label>
+                <Label htmlFor="room-password">{t("비밀번호 (선택)")}</Label>
                 <Input
                   id="room-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="비워 두면 누구나 들어올 수 있습니다"
+                  placeholder={t("비워 두면 누구나 들어올 수 있습니다")}
                   maxLength={20}
                   autoComplete="off"
                 />
               </div>
             )}
             <Button size="lg" disabled={pending} onClick={() => create(selected)}>
-              {pending ? "여는 중…" : selected.solo ? "시작하기" : "방 만들기"}
+              {pending ? t("여는 중…") : selected.solo ? t("시작하기") : t("방 만들기")}
             </Button>
           </DialogContent>
         )}
@@ -224,8 +229,8 @@ function GameGrid() {
 }
 
 function HallOfFame() {
-  const lobby = useLobby();
   const [boards, setBoards] = useState<BoardRows[] | null>(null);
+  const t = useT();
   // 탭을 열 때마다 새로 읽습니다.
   useEffect(() => {
     let alive = true;
@@ -244,18 +249,50 @@ function HallOfFame() {
       {BOARDS.map((board) => (
         <li key={board.key} data-game={board.game}>
           <Panel
-            label={board.label}
+            label={t(board.label)}
             action={<GameIcon game={board.game} className="size-6 border-0" />}
           >
             <RecordList
               rows={boards.find((b) => b.key === board.key)?.rows.slice(0, 10) ?? []}
               boardKey={board.key}
-              me={lobby.you?.name}
             />
           </Panel>
         </li>
       ))}
     </ul>
+  );
+}
+
+/** 홈 맨 위의 간판. 마스코트와 이름, 지금 몇 명이 무엇을 하고 있는지 보여 줍니다. */
+export function BrandHero() {
+  const lobby = useLobby();
+  const t = useT();
+  const playing = lobby.users.some((user) => user.room);
+  return (
+    <section className="relative overflow-hidden border-2 border-ink bg-card pixel-shadow">
+      <div className="flex items-center gap-5 px-5 pt-6 pb-8 sm:gap-7 sm:px-8">
+        <Mascot mood={playing ? "happy" : "smile"} blink bob className="w-16 sm:w-20" />
+        <div className="flex min-w-0 flex-col gap-2">
+          <p className="font-pixel fs-1 tracking-wide text-pop-yellow">WELCOME</p>
+          {/* 사이트 이름은 헤더에 이미 있으므로, 여기서는 인사말을 크게 보여 줍니다. */}
+          <h1 className="font-pixel fs-15 break-keep text-foreground sm:fs-2">
+            {lobby.you ? t("{name} 님, 어서 오세요!", { name: lobby.you.name }) : t("어서 오세요!")}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {t("방을 만들어 함께 하거나, 혼자 기록에 도전하세요.")}
+          </p>
+          <ul className="font-pixel mt-1 flex flex-wrap gap-2 fs-1 text-muted-foreground">
+            <li className="flex items-center gap-1.5 border-2 border-border px-2 py-0.5">
+              <span className="size-1.5 bg-pop-green" />
+              {t("접속 {n}명", { n: lobby.users.length })}
+            </li>
+            <li className="border-2 border-border px-2 py-0.5">{t("열린 방 {n}", { n: lobby.rooms.length })}</li>
+            <li className="border-2 border-border px-2 py-0.5">{t("게임 {n}", { n: games.length })}</li>
+          </ul>
+        </div>
+      </div>
+      <div aria-hidden className="brand-checker absolute inset-x-0 bottom-0 h-1.5" />
+    </section>
   );
 }
 
@@ -265,6 +302,7 @@ type Tab = "rooms" | "games" | "records";
 export function LobbyTabs() {
   const lobby = useLobby();
   const [tab, setTab] = useState<Tab | null>(null);
+  const t = useT();
   // 처음 들어왔을 때만 자동으로 고릅니다: 열린 방이 있으면 방 목록, 없으면 게임 목록.
   // 그 뒤로는 방이 생기거나 없어져도 보고 있던 탭을 바꾸지 않습니다.
   if (tab === null && lobby.ready) setTab(lobby.rooms.length > 0 ? "rooms" : "games");
@@ -274,7 +312,7 @@ export function LobbyTabs() {
     <Tabs value={current} onValueChange={(value) => setTab(value as Tab)}>
       <TabsList>
         <TabsTrigger value="rooms">
-          열린 방
+          {t("열린 방")}
           <span
             className={cn(
             "font-pixel flex h-5 min-w-5 items-center justify-center px-1 fs-1 tabular-nums",
@@ -285,12 +323,12 @@ export function LobbyTabs() {
           </span>
         </TabsTrigger>
         <TabsTrigger value="games">
-          게임 목록
+          {t("게임 목록")}
           <span className="font-pixel flex h-5 min-w-5 items-center justify-center bg-muted px-1 fs-1 text-muted-foreground tabular-nums">
             {games.length}
           </span>
         </TabsTrigger>
-        <TabsTrigger value="records">명예의 전당</TabsTrigger>
+        <TabsTrigger value="records">{t("명예의 전당")}</TabsTrigger>
       </TabsList>
       <TabsContent value="rooms">
         <RoomList onBrowseGames={() => setTab("games")} />
@@ -308,19 +346,20 @@ export function LobbyTabs() {
 export function OnlineUsers() {
   const lobby = useLobby();
   const enter = useEnterRoom();
+  const t = useT();
   return (
     <Panel
       label="ONLINE"
       action={
         <span className="flex items-center gap-1.5 text-xs text-pop-green tabular-nums">
           <span className="size-1.5 bg-current" />
-          {lobby.users.length}명 접속 중
+          {t("{n}명 접속 중", { n: lobby.users.length })}
         </span>
       }
     >
       {lobby.users.length === 0 ? (
         <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-          {lobby.ready ? "닉네임을 정하면 여기에 표시됩니다." : "불러오는 중…"}
+          {lobby.ready ? t("닉네임을 정하면 여기에 표시됩니다.") : t("불러오는 중…")}
         </p>
       ) : (
         <ul className="flex max-h-[28rem] flex-col overflow-y-auto p-2">
@@ -332,11 +371,11 @@ export function OnlineUsers() {
                 <PixelAvatar seed={user.id} className="size-7" />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">
                   {user.name}
-                  {me && <span className="ml-1.5 text-xs font-normal text-muted-foreground">나</span>}
+                  {me && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{t("나")}</span>}
                 </span>
                 {user.room && game && !user.room.joinable ? (
                   <span data-game={user.room.game} className="truncate text-xs text-game">
-                    {game.title}
+                    {t(game.title)}
                   </span>
                 ) : user.room && game ? (
                   <button
@@ -345,7 +384,7 @@ export function OnlineUsers() {
                     onClick={() => enter(user.room!.code)}
                     className="truncate text-xs text-game underline-offset-2 outline-none hover:underline focus-visible:underline"
                   >
-                    {game.title}
+                    {t(game.title)}
                   </button>
                 ) : (
                   <Label11>LOBBY</Label11>

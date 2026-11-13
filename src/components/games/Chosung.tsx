@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useT } from "@/lib/i18n";
 import type { RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { GameTag, Lobby, Option, RankRow, Result, type GameProps } from "./shared";
@@ -15,6 +16,7 @@ type View = Extract<RoomView, { game: "chosung" }>;
 
 export function Chosung({ view, send, nameOf }: GameProps<View>) {
   const s = view.state;
+  const t = useT();
   const [category, setCategory] = useState("all");
   const [rounds, setRounds] = useState("10");
   const [text, setText] = useState("");
@@ -26,32 +28,32 @@ export function Chosung({ view, send, nameOf }: GameProps<View>) {
         send={send}
         onStart={() => send({ type: "start", category, rounds: Number(rounds) })}
       >
-        <Option label="주제">
+        <Option label={t("주제")}>
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-40" aria-label="주제">
+            <SelectTrigger className="w-40" aria-label={t("주제")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">전체</SelectItem>
+              <SelectItem value="all">{t("전체")}</SelectItem>
               {s.categories.map((c) => (
                 <SelectItem key={c.key} value={c.key}>
-                  {c.label}
+                  {t(c.label)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Option>
-        <Option label="문제 수">
+        <Option label={t("문제 수")}>
           <ToggleGroup
             type="single"
             variant="outline"
-            aria-label="문제 수"
+            aria-label={t("문제 수")}
             value={rounds}
             onValueChange={(v) => v && setRounds(v)}
           >
             {["5", "10", "15"].map((n) => (
               <ToggleGroupItem key={n} value={n}>
-                {n}문제
+                {t("{n}문제", { n })}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
@@ -82,8 +84,8 @@ export function Chosung({ view, send, nameOf }: GameProps<View>) {
         view={view}
         send={send}
         tone={!hasWinner ? "neutral" : top.id === view.you ? "win" : "lose"}
-        title={hasWinner ? `${top.name} 우승` : "무승부"}
-        subtitle={hasWinner ? `${top.score}문제를 맞혔습니다.` : "아무도 점수를 얻지 못했습니다."}
+        title={hasWinner ? t("{name} 우승", { name: top.name }) : t("무승부")}
+        subtitle={hasWinner ? t("{n}문제를 맞혔습니다.", { n: top.score }) : t("아무도 점수를 얻지 못했습니다.")}
       >
         {scores}
       </Result>
@@ -106,7 +108,8 @@ export function Chosung({ view, send, nameOf }: GameProps<View>) {
             <Label11 className="tabular-nums">
               ROUND {s.round}/{s.totalRounds}
             </Label11>
-            <GameTag>{s.category}</GameTag>
+            {/* 주제 이름은 서버가 한국어로 보내므로 그대로 넘겨 옮깁니다. */}
+            <GameTag>{t(s.category)}</GameTag>
           </div>
 
           <div className="flex min-h-36 flex-col items-center justify-center gap-3">
@@ -121,10 +124,10 @@ export function Chosung({ view, send, nameOf }: GameProps<View>) {
             </p>
             <p className="h-5 text-sm text-muted-foreground">
               {asking
-                ? s.hint && `힌트: '${s.hint}'(으)로 시작합니다`
+                ? s.hint && t("힌트: '{hint}'(으)로 시작합니다", { hint: s.hint })
                 : s.winnerId
-                  ? `${nameOf(s.winnerId)} 님 정답`
-                  : "아무도 맞히지 못했습니다"}
+                  ? t("{name} 님 정답", { name: nameOf(s.winnerId) })
+                  : t("아무도 맞히지 못했습니다")}
             </p>
           </div>
 
@@ -135,18 +138,18 @@ export function Chosung({ view, send, nameOf }: GameProps<View>) {
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={asking ? "정답 입력" : "다음 문제 준비 중…"}
-              aria-label="정답"
+              placeholder={asking ? t("정답 입력") : t("다음 문제 준비 중…")}
+              aria-label={t("정답")}
               maxLength={20}
               autoComplete="off"
               disabled={!asking}
             />
             <Button type="submit" variant="game" disabled={!asking}>
-              제출
+              {t("제출")}
             </Button>
           </form>
 
-          <ul className="flex min-h-7 flex-wrap gap-2" aria-label="오답">
+          <ul className="flex min-h-7 flex-wrap gap-2" aria-label={t("오답")}>
             {asking &&
               s.guesses.map((g, i) => (
                 <li

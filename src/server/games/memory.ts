@@ -95,7 +95,7 @@ export const memoryGame: GameModule = {
   view(room): MemoryView {
     const s = room.state as State;
     return {
-      ...soloView(s, BOARD_KEYS),
+      ...soloView(room, s, BOARD_KEYS),
       phase: s.phase,
       level: s.level,
       cols: LEVELS[s.level].cols,

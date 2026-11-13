@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { audio } from "@/lib/audio";
 import { useNow } from "@/lib/clock";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const SEGMENTS = 20;
@@ -17,6 +18,7 @@ export function LedTimer({
   totalMs: number;
   tick?: boolean;
 }) {
+  const t = useT();
   const now = useNow();
   const left = Math.max(0, deadline - now);
   const seconds = Math.ceil(left / 1000);
@@ -31,7 +33,7 @@ export function LedTimer({
   }, [tick, urgent, seconds]);
 
   return (
-    <div role="timer" aria-label={`남은 시간 ${seconds}초`} className="flex items-center gap-3">
+    <div role="timer" aria-label={t("남은 시간 {n}초", { n: seconds })} className="flex items-center gap-3">
       <div className="flex h-3 flex-1 gap-px">
         {Array.from({ length: SEGMENTS }, (_, i) => (
           <span

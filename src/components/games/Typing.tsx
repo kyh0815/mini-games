@@ -9,6 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { audio } from "@/lib/audio";
 import { useNow } from "@/lib/clock";
 import { strokes } from "@/lib/hangul";
+import { useT } from "@/lib/i18n";
 import type { RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Lobby, Option, RankRow, Result, type GameProps } from "./shared";
@@ -26,6 +27,7 @@ function correctPrefix(typed: string, target: string): number {
 
 function Race({ view, send, nameOf }: GameProps<View>) {
   const s = view.state;
+  const t = useT();
   const now = useNow();
   const [typed, setTyped] = useState("");
   const [focused, setFocused] = useState(false);
@@ -79,13 +81,14 @@ function Race({ view, send, nameOf }: GameProps<View>) {
           <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-6">
             <Label11>GET READY</Label11>
             <Countdown until={s.startAt} />
-            <p className="text-sm text-muted-foreground">키보드에 손을 올리세요.</p>
+            <p className="text-sm text-muted-foreground">{t("키보드에 손을 올리세요.")}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-5 p-5 sm:p-7">
             <div className="flex items-end justify-between gap-4">
               <span className="flex items-baseline gap-1.5 text-sm text-muted-foreground">
-                <span className="font-pixel fs-2 text-foreground tabular-nums">{speed}</span>타/분
+                <span className="font-pixel fs-2 text-foreground tabular-nums">{speed}</span>
+                {t("타/분")}
               </span>
               <span className="font-pixel fs-15 text-muted-foreground tabular-nums">
                 {Math.round((correct / total) * 100)}%
@@ -140,7 +143,7 @@ function Race({ view, send, nameOf }: GameProps<View>) {
                   onPaste={(e) => e.preventDefault()}
                   onDrop={(e) => e.preventDefault()}
                   disabled={finished}
-                  aria-label={`다음 문장을 입력하세요: ${s.text}`}
+                  aria-label={t("다음 문장을 입력하세요: {text}", { text: s.text })}
                   spellCheck={false}
                   autoComplete="off"
                   autoCorrect="off"
@@ -150,22 +153,22 @@ function Race({ view, send, nameOf }: GameProps<View>) {
               )}
               {me && !focused && !finished && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-card/90">
-                  <span className="text-sm font-semibold">여기를 눌러 입력을 시작하세요</span>
+                  <span className="text-sm font-semibold">{t("여기를 눌러 입력을 시작하세요")}</span>
                 </div>
               )}
             </div>
 
             {finished ? (
               <p className="text-center text-sm font-semibold text-pop-green">
-                완주! 다른 사람을 기다리는 중…
+                {t("완주! 다른 사람을 기다리는 중…")}
               </p>
             ) : !me ? (
               <p className="text-center text-sm text-muted-foreground">
-                게임 도중에 들어와 이번 판은 관전합니다.
+                {t("게임 도중에 들어와 이번 판은 관전합니다.")}
               </p>
             ) : (
               <p className="text-center text-xs text-muted-foreground">
-                빨간 글자가 보이면 지우고 다시 입력하세요.
+                {t("빨간 글자가 보이면 지우고 다시 입력하세요.")}
               </p>
             )}
             <LedTimer deadline={s.deadline} totalMs={RACE_LIMIT_MS} />
@@ -212,21 +215,22 @@ function Race({ view, send, nameOf }: GameProps<View>) {
 export function Typing(props: GameProps<View>) {
   const { view, send, nameOf } = props;
   const s = view.state;
+  const t = useT();
   const [length, setLength] = useState("short");
 
   if (s.phase === "lobby") {
     return (
       <Lobby view={view} send={send} onStart={() => send({ type: "start", length })}>
-        <Option label="문장 길이">
+        <Option label={t("문장 길이")}>
           <ToggleGroup
             type="single"
             variant="outline"
-            aria-label="문장 길이"
+            aria-label={t("문장 길이")}
             value={length}
             onValueChange={(v) => v && setLength(v)}
           >
-            <ToggleGroupItem value="short">짧은 글</ToggleGroupItem>
-            <ToggleGroupItem value="long">긴 글</ToggleGroupItem>
+            <ToggleGroupItem value="short">{t("짧은 글")}</ToggleGroupItem>
+            <ToggleGroupItem value="long">{t("긴 글")}</ToggleGroupItem>
           </ToggleGroup>
         </Option>
       </Lobby>
@@ -253,8 +257,8 @@ export function Typing(props: GameProps<View>) {
       view={view}
       send={send}
       tone={!anyFinished || !iPlayed ? "neutral" : winner === view.you ? "win" : "lose"}
-      title={anyFinished ? `${nameOf(winner)} 우승` : "시간 종료"}
-      subtitle={anyFinished ? undefined : "아무도 완주하지 못했습니다."}
+      title={anyFinished ? t("{name} 우승", { name: nameOf(winner) }) : t("시간 종료")}
+      subtitle={anyFinished ? undefined : t("아무도 완주하지 못했습니다.")}
     >
       <div className="flex flex-col gap-4">
         <ol className="flex flex-col gap-2">
@@ -265,15 +269,15 @@ export function Typing(props: GameProps<View>) {
                 {p.finishedMs != null ? (
                   <>
                     <span className="text-sm text-muted-foreground tabular-nums">
-                      {(p.finishedMs / 1000).toFixed(1)}초
+                      {t("{n}초", { n: (p.finishedMs / 1000).toFixed(1) })}
                     </span>
                     <span className="font-pixel w-20 text-right fs-15 text-foreground tabular-nums">
-                      {Math.round(s.strokes / (p.finishedMs / 60_000))}타
+                      {t("{n}타", { n: Math.round(s.strokes / (p.finishedMs / 60_000)) })}
                     </span>
                   </>
                 ) : (
                   <span className="text-sm text-muted-foreground">
-                    미완주 {Math.round((p.chars / Math.max(1, s.text.length)) * 100)}%
+                    {t("미완주 {n}%", { n: Math.round((p.chars / Math.max(1, s.text.length)) * 100) })}
                   </span>
                 )}
               </RankRow>

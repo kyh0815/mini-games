@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Label11, Screen } from "@/components/arcade/panel";
+import { useT } from "@/lib/i18n";
 import type { RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import type { GameProps } from "./shared";
@@ -11,6 +12,7 @@ type View = Extract<RoomView, { game: "reaction" }>;
 
 export function Reaction({ view, send }: GameProps<View>) {
   const s = view.state;
+  const t = useT();
   // 반응 시간은 초록 화면이 그려진 순간부터 이 기기에서 잽니다. 통신 지연이 섞이지 않습니다.
   const shownAt = useRef(0);
   useLayoutEffect(() => {
@@ -83,15 +85,15 @@ export function Reaction({ view, send }: GameProps<View>) {
           >
             {s.phase === "wait" && (
               <>
-                <span className="font-pixel fs-3">기다리세요</span>
-                <span className="text-sm text-muted-foreground">초록으로 바뀌면 누르세요</span>
+                <span className="font-pixel fs-3">{t("기다리세요")}</span>
+                <span className="text-sm text-muted-foreground">{t("초록으로 바뀌면 누르세요")}</span>
               </>
             )}
-            {s.phase === "go" && <span className="font-pixel fs-6">지금!</span>}
+            {s.phase === "go" && <span className="font-pixel fs-6">{t("지금!")}</span>}
             {s.phase === "early" && (
               <>
-                <span className="font-pixel fs-3 text-pop-red">너무 빨랐습니다</span>
-                <span className="text-sm text-muted-foreground">이번 회차를 다시 합니다</span>
+                <span className="font-pixel fs-3 text-pop-red">{t("너무 빨랐습니다")}</span>
+                <span className="text-sm text-muted-foreground">{t("이번 회차를 다시 합니다")}</span>
               </>
             )}
             {s.phase === "between" && (
@@ -101,7 +103,7 @@ export function Reaction({ view, send }: GameProps<View>) {
               </span>
             )}
           </button>
-          <p className="text-center text-xs text-muted-foreground">클릭하거나 스페이스를 누르세요.</p>
+          <p className="text-center text-xs text-muted-foreground">{t("클릭하거나 스페이스를 누르세요.")}</p>
         </div>
       </Screen>
     </SoloShell>

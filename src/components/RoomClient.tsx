@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNod
 import { toast } from "sonner";
 import { GameIcon } from "@/components/arcade/game-icon";
 import { openNickname } from "@/components/arcade/nickname";
+import { Mascot, type Mood } from "@/components/arcade/mascot";
 import { Blink, Panel } from "@/components/arcade/panel";
 import { PixelAvatar } from "@/components/arcade/pixel-avatar";
 import { ArrowLeft, Check, Crown, InfoBox, LinkIcon, Lock } from "@/components/icons";
@@ -35,6 +36,7 @@ import { post } from "@/lib/client";
 import { syncClock } from "@/lib/clock";
 import { drawStore } from "@/lib/draw-store";
 import { getGame } from "@/lib/games";
+import { tNow, useT } from "@/lib/i18n";
 import { useLobby } from "@/lib/lobby-store";
 import type { GameAction, RoomView, Stroke } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -47,6 +49,7 @@ import { Memory } from "./games/Memory";
 import { Reaction } from "./games/Reaction";
 import { Rules } from "./games/shared";
 import { Snake } from "./games/Snake";
+import { Sequence } from "./games/Sequence";
 import { Stairs } from "./games/Stairs";
 import { Typing } from "./games/Typing";
 import { Word } from "./games/Word";
@@ -61,16 +64,28 @@ type Status =
   | { kind: "password"; message: string; tried: boolean }
   | { kind: "refused"; message: string };
 
-function Notice({ title, children, action }: { title: string; children: string; action?: ReactNode }) {
+function Notice({
+  title,
+  children,
+  action,
+  mood = "oops",
+}: {
+  title: string;
+  children: string;
+  action?: ReactNode;
+  mood?: Mood;
+}) {
+  const t = useT();
   return (
     <Panel className="mx-auto mt-10 w-full max-w-md">
       <div className="flex flex-col items-center gap-5 px-6 py-10 text-center">
+        <Mascot mood={mood} blink className="w-14" />
         <h1 className="font-pixel fs-2 text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground">{children}</p>
         <div className="flex gap-3">
           {action}
           <Button asChild variant={action ? "outline" : "default"}>
-            <Link href="/">로비로 돌아가기</Link>
+            <Link href="/">{t("로비로 돌아가기")}</Link>
           </Button>
         </div>
       </div>
@@ -90,6 +105,7 @@ function PasswordGate({
 }) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
+  const t = useT();
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!value) return;
@@ -102,16 +118,16 @@ function PasswordGate({
     <Panel className="mx-auto mt-10 w-full max-w-md">
       <form onSubmit={submit} className="flex flex-col items-center gap-5 px-6 py-10 text-center">
         <Lock className="size-9 text-pop-yellow" />
-        <h1 className="font-pixel fs-2 text-foreground">비밀번호 방</h1>
+        <h1 className="font-pixel fs-2 text-foreground">{t("비밀번호 방")}</h1>
         <p role={wrong ? "alert" : undefined} className={cn("text-sm", wrong ? "text-pop-red" : "text-muted-foreground")}>
-          {wrong ? message : "방을 만든 사람에게 비밀번호를 물어보세요."}
+          {wrong ? t(message) : t("방을 만든 사람에게 비밀번호를 물어보세요.")}
         </p>
         <Input
           type="password"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          aria-label="비밀번호"
-          placeholder="비밀번호"
+          aria-label={t("비밀번호")}
+          placeholder={t("비밀번호")}
           maxLength={20}
           autoComplete="off"
           autoFocus
@@ -119,10 +135,10 @@ function PasswordGate({
         />
         <div className="flex gap-3">
           <Button asChild variant="outline">
-            <Link href="/">로비로</Link>
+            <Link href="/">{t("로비로")}</Link>
           </Button>
           <Button type="submit" disabled={busy || !value}>
-            입장
+            {t("입장")}
           </Button>
         </div>
       </form>
@@ -140,6 +156,7 @@ export function RoomClient({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const prevView = useRef<RoomView | null>(null);
+  const t = useT();
 
   const join = useCallback(
     async (password?: string) => {
@@ -214,7 +231,7 @@ export function RoomClient({ code }: { code: string }) {
         return true;
       } catch (err) {
         audio.play("wrong");
-        toast.error((err as Error).message);
+        toast.error(tNow((err as Error).message));
         return false;
       }
     },
@@ -223,15 +240,15 @@ export function RoomClient({ code }: { code: string }) {
 
   const nameOf = useCallback(
     (id: string | null | undefined) =>
-      view?.players.find((p) => p.id === id)?.name ?? "나간 사람",
-    [view],
+      view?.players.find((p) => p.id === id)?.name ?? t("나간 사람"),
+    [view, t],
   );
 
   if (status.kind === "notFound") {
-    return <Notice title="방을 찾을 수 없습니다">코드가 틀렸거나, 모두 나가서 방이 닫혔습니다.</Notice>;
+    return <Notice title={t("방을 찾을 수 없습니다")}>{t("코드가 틀렸거나, 모두 나가서 방이 닫혔습니다.")}</Notice>;
   }
   if (status.kind === "refused") {
-    return <Notice title="입장할 수 없습니다">{status.message}</Notice>;
+    return <Notice title={t("입장할 수 없습니다")}>{t(status.message)}</Notice>;
   }
   if (status.kind === "password") {
     return <PasswordGate message={status.message} wrong={status.tried} onSubmit={join} />;
@@ -239,7 +256,7 @@ export function RoomClient({ code }: { code: string }) {
   if (status.kind === "left") {
     return (
       <Notice
-        title="방에서 나왔습니다"
+        title={t("방에서 나왔습니다")}
         action={
           <Button
             onClick={() => {
@@ -247,26 +264,31 @@ export function RoomClient({ code }: { code: string }) {
               void join();
             }}
           >
-            다시 입장
+            {t("다시 입장")}
           </Button>
         }
       >
-        다시 들어가려면 아래 버튼을 누르세요.
+        {t("다시 들어가려면 아래 버튼을 누르세요.")}
       </Notice>
     );
   }
   if (lobby.ready && !youId) {
     return (
-      <Notice title="게임 방" action={<Button onClick={openNickname}>닉네임 정하기</Button>}>
-        닉네임을 정하면 바로 입장합니다.
+      <Notice
+        mood="smile"
+        title={t("게임 방")}
+        action={<Button onClick={openNickname}>{t("닉네임 정하기")}</Button>}
+      >
+        {t("닉네임을 정하면 바로 입장합니다.")}
       </Notice>
     );
   }
   if (!view) {
     return (
-      <p className="py-32 text-center">
+      <div className="flex flex-col items-center gap-4 py-28">
+        <Mascot blink bob className="w-14" />
         <Blink className="fs-15 text-muted-foreground">LOADING</Blink>
-      </p>
+      </div>
     );
   }
 
@@ -277,10 +299,10 @@ export function RoomClient({ code }: { code: string }) {
     try {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
-      toast.success("초대 링크를 복사했습니다.");
+      toast.success(tNow("초대 링크를 복사했습니다."));
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      toast.error("복사하지 못했습니다. 주소창의 주소를 직접 복사해 주세요.");
+      toast.error(tNow("복사하지 못했습니다. 주소창의 주소를 직접 복사해 주세요."));
     }
   };
   const leave = async () => {
@@ -298,17 +320,17 @@ export function RoomClient({ code }: { code: string }) {
               <Button
                 variant="outline"
                 size="icon"
-                aria-label="방 나가기"
+                aria-label={t("방 나가기")}
                 // 대기실에서는 바로 나가고, 게임 중에는 한 번 확인합니다.
                 onClick={() => (inLobby || solo ? leave() : setConfirmLeave(true))}
               >
                 <ArrowLeft />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>방 나가기</TooltipContent>
+            <TooltipContent>{t("방 나가기")}</TooltipContent>
           </Tooltip>
           <GameIcon game={view.game} className="size-10" />
-          <h1 className="font-pixel truncate fs-2 text-foreground">{game.title}</h1>
+          <h1 className="font-pixel truncate fs-2 text-foreground">{t(game.title)}</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -316,25 +338,25 @@ export function RoomClient({ code }: { code: string }) {
           {!solo && (
             <Button variant="secondary" onClick={copyLink}>
               {copied ? <Check /> : <LinkIcon />}
-              초대 링크
+              {t("초대 링크")}
             </Button>
           )}
           <Dialog>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="icon" aria-label="게임 방법">
+                  <Button variant="outline" size="icon" aria-label={t("게임 방법")}>
                     <InfoBox />
                   </Button>
                 </DialogTrigger>
               </TooltipTrigger>
-              <TooltipContent>게임 방법</TooltipContent>
+              <TooltipContent>{t("게임 방법")}</TooltipContent>
             </Tooltip>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>{game.title}</DialogTitle>
+                <DialogTitle>{t(game.title)}</DialogTitle>
                 <DialogDescription>
-                  {game.description} · {game.players}
+                  {t(game.description)} · {t(game.players)}
                 </DialogDescription>
               </DialogHeader>
               <Rules rules={game.rules} />
@@ -346,18 +368,18 @@ export function RoomClient({ code }: { code: string }) {
       <AlertDialog open={confirmLeave} onOpenChange={setConfirmLeave}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>게임 중에 나갈까요?</AlertDialogTitle>
+            <AlertDialogTitle>{t("게임 중에 나갈까요?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              나가면 이번 판에는 다시 참여할 수 없습니다.
+              {t("나가면 이번 판에는 다시 참여할 수 없습니다.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel asChild>
-              <Button variant="outline">계속 하기</Button>
+              <Button variant="outline">{t("계속 하기")}</Button>
             </AlertDialogCancel>
             <AlertDialogAction asChild>
               <Button variant="destructive" onClick={leave}>
-                나가기
+                {t("나가기")}
               </Button>
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -366,12 +388,12 @@ export function RoomClient({ code }: { code: string }) {
 
       {!connected && (
         <p role="status" className="border-2 border-pop-yellow px-3 py-2 text-center text-sm text-pop-yellow">
-          연결이 끊겼습니다. 다시 연결하는 중…
+          {t("연결이 끊겼습니다. 다시 연결하는 중…")}
         </p>
       )}
 
       {!inLobby && !solo && view.game !== "draw" && (
-        <ul className="flex flex-wrap gap-2" aria-label="참가자">
+        <ul className="flex flex-wrap gap-2" aria-label={t("참가자")}>
           {view.players.map((p) => (
             <li
               key={p.id}
@@ -383,8 +405,8 @@ export function RoomClient({ code }: { code: string }) {
             >
               <PixelAvatar seed={p.id} className="size-5 border-0" />
               <span className="max-w-28 truncate">{p.name}</span>
-              {p.id === view.hostId && <Crown aria-label="방장" className="size-4 text-pop-yellow" />}
-              {!p.online && <span className="text-xs text-muted-foreground">끊김</span>}
+              {p.id === view.hostId && <Crown aria-label={t("방장")} className="size-4 text-pop-yellow" />}
+              {!p.online && <span className="text-xs text-muted-foreground">{t("끊김")}</span>}
             </li>
           ))}
         </ul>
@@ -402,6 +424,7 @@ export function RoomClient({ code }: { code: string }) {
       {view.game === "reaction" && <Reaction view={view} {...props} />}
       {view.game === "aim" && <Aim view={view} {...props} />}
       {view.game === "stairs" && <Stairs view={view} {...props} />}
+      {view.game === "sequence" && <Sequence view={view} {...props} />}
     </div>
   );
 }

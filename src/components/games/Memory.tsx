@@ -8,6 +8,7 @@ import {
 } from "@/components/icons";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useNow } from "@/lib/clock";
+import { useT } from "@/lib/i18n";
 import type { RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Option, type GameProps } from "./shared";
@@ -37,6 +38,7 @@ function Elapsed({ startAt }: { startAt: number }) {
 
 export function Memory({ view, send }: GameProps<View>) {
   const s = view.state;
+  const t = useT();
   const [level, setLevel] = useState<string>(s.level);
   const start = () => send({ type: "start", level });
 
@@ -44,17 +46,17 @@ export function Memory({ view, send }: GameProps<View>) {
     return (
       <SoloShell view={view} boardKey={`memory-${level}`}>
         <SoloIntro view={view} onStart={start}>
-          <Option label="난이도">
+          <Option label={t("난이도")}>
             <ToggleGroup
               type="single"
               variant="outline"
-              aria-label="난이도"
+              aria-label={t("난이도")}
               value={level}
               onValueChange={(v) => v && setLevel(v)}
             >
               {LEVELS.map((l) => (
                 <ToggleGroupItem key={l.value} value={l.value}>
-                  {l.label}
+                  {t(l.label)}
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
@@ -69,7 +71,7 @@ export function Memory({ view, send }: GameProps<View>) {
       <SoloShell view={view} boardKey={`memory-${s.level}`}>
         <SoloResult
           last={s.last}
-          detail={`${s.moves}번 뒤집어서 모두 찾았습니다.`}
+          detail={t("{n}번 뒤집어서 모두 찾았습니다.", { n: s.moves })}
           onRetry={() => send({ type: "start", level: s.level })}
           onBack={() => send({ type: "reset" })}
         />
@@ -83,7 +85,8 @@ export function Memory({ view, send }: GameProps<View>) {
         <div className="flex flex-col gap-4 p-4 sm:p-6">
           <div className="flex items-end justify-between">
             <span className="flex items-baseline gap-1.5 text-sm text-muted-foreground">
-              <Elapsed startAt={s.startAt} />초
+              <Elapsed startAt={s.startAt} />
+              {t("초")}
             </span>
             <Label11 className="tabular-nums">MOVES {s.moves}</Label11>
           </div>
@@ -98,7 +101,11 @@ export function Memory({ view, send }: GameProps<View>) {
                 <li key={i}>
                   <button
                     type="button"
-                    aria-label={face === null ? `${i + 1}번 카드, 뒤집히지 않음` : `${i + 1}번 카드`}
+                    aria-label={
+                      face === null
+                        ? t("{n}번 카드, 뒤집히지 않음", { n: i + 1 })
+                        : t("{n}번 카드", { n: i + 1 })
+                    }
                     disabled={done}
                     onClick={() => send({ type: "flip", index: i })}
                     className={cn(
@@ -120,7 +127,7 @@ export function Memory({ view, send }: GameProps<View>) {
             })}
           </ul>
           <p className="text-center text-xs text-muted-foreground">
-            {s.startAt === 0 ? "첫 카드를 뒤집으면 시간이 흐르기 시작합니다." : "같은 그림 두 장을 찾으세요."}
+            {s.startAt === 0 ? t("첫 카드를 뒤집으면 시간이 흐르기 시작합니다.") : t("같은 그림 두 장을 찾으세요.")}
           </p>
         </div>
       </Screen>

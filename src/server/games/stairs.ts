@@ -1,4 +1,5 @@
 import { randomInt } from "node:crypto";
+import { stageOf } from "@/lib/stairs";
 import type { StairsView } from "@/lib/types";
 import { GameError, clearRoomTimer, requireHost, setRoomTimer, type Room } from "../rooms";
 import type { GameModule } from "./index";
@@ -21,6 +22,62 @@ function init(): State {
   return { phase: "lobby", startAt: 0, steps: "", climbed: 0, last: null };
 }
 
+/**
+ * 계단 방향을 만듭니다. 처음 두 단계는 단순한 무작위이고,
+ * 그 뒤로는 성격이 다른 짧은 구간(직진, 지그재그, 두 칸씩, 속임수)을 섞어 리듬을 읽기 어렵게 합니다.
+ * 단계가 오를수록 구간이 짧아져 패턴이 더 자주 바뀝니다.
+ */
+export function makeSteps(total: number): string {
+  let out = "";
+  let dir: "L" | "R" = randomInt(2) === 0 ? "L" : "R";
+  const flip = () => {
+    dir = dir === "L" ? "R" : "L";
+  };
+  const put = () => {
+    out += dir;
+  };
+  while (out.length < total) {
+    const stage = stageOf(out.length);
+    if (stage <= 2) {
+      if (randomInt(100) < (stage === 1 ? 30 : 45)) flip();
+      put();
+      continue;
+    }
+    const n = 2 + randomInt(Math.max(2, 8 - stage));
+    switch (randomInt(5)) {
+      case 0: // 한쪽으로 쭉
+        flip();
+        for (let i = 0; i < n; i++) put();
+        break;
+      case 1: // 매번 꺾기
+        for (let i = 0; i < n; i++) {
+          flip();
+          put();
+        }
+        break;
+      case 2: // 두 칸씩 꺾기
+        for (let i = 0; i < n; i++) {
+          if (i % 2 === 0) flip();
+          put();
+        }
+        break;
+      case 3: // 쭉 가다가 한 칸만 반대로
+        for (let i = 0; i < n; i++) put();
+        flip();
+        put();
+        flip();
+        put();
+        break;
+      default: // 완전 무작위
+        for (let i = 0; i < n; i++) {
+          if (randomInt(2) === 0) flip();
+          put();
+        }
+    }
+  }
+  return out.slice(0, total);
+}
+
 function accept(s: State, raw: unknown): void {
   const climbed = Number(raw);
   if (!Number.isInteger(climbed) || climbed < 0) return;
@@ -33,7 +90,7 @@ function finish(room: Room): void {
   if (s.phase !== "play") return;
   clearRoomTimer(room);
   s.phase = "result";
-  record(room, s, "stairs", s.climbed);
+  record(room, s, "stairs-2", s.climbed);
 }
 
 export const stairsGame: GameModule = {
@@ -43,14 +100,11 @@ export const stairsGame: GameModule = {
     switch (action.type) {
       case "start": {
         requireHost(isHost);
-        let steps = "";
-        // 같은 방향이 길게 이어지면 지루하고, 매번 바뀌면 리듬으로만 치게 됩니다.
-        let dir = randomInt(2) === 0 ? "L" : "R";
-        for (let i = 0; i < STEPS; i++) {
-          if (randomInt(100) < 45) dir = dir === "L" ? "R" : "L";
-          steps += dir;
-        }
-        Object.assign(s, init(), { phase: "play", startAt: Date.now() + COUNTDOWN_MS, steps });
+        Object.assign(s, init(), {
+          phase: "play",
+          startAt: Date.now() + COUNTDOWN_MS,
+          steps: makeSteps(STEPS),
+        });
         setRoomTimer(room, COUNTDOWN_MS + MAX_MS, () => finish(room));
         return;
       }
@@ -69,7 +123,7 @@ export const stairsGame: GameModule = {
   view(room): StairsView {
     const s = room.state as State;
     return {
-      ...soloView(s, ["stairs"]),
+      ...soloView(room, s, ["stairs-2"]),
       phase: s.phase,
       startAt: s.startAt,
       steps: s.steps,

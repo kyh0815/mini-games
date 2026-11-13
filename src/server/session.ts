@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { GameError } from "./errors";
 
 /** 닉네임을 정한 방문자. 방과 무관하게 사이트 전체에서 같은 사람입니다. */
@@ -12,7 +12,20 @@ export type User = {
 };
 
 const COOKIE = "mg_session";
+/** 접속이 없는 사람을 메모리에서 지우기까지의 시간 */
 const USER_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** 쿠키는 그 기기를 알아보는 표식이기도 해서 오래 둡니다(브라우저가 허용하는 최대에 가깝게). */
+const COOKIE_MAX_AGE_S = 400 * 24 * 60 * 60;
+const SID_PATTERN = /^[0-9a-f]{48}$/;
+
+/**
+ * 기록의 주인을 가리는 값. 닉네임이 아니라 기기(쿠키)에서 만들어지므로,
+ * 남의 닉네임을 써도 그 사람의 기록을 건드릴 수 없습니다.
+ * 쿠키 값 자체는 어디에도 저장하지 않고 이 해시만 씁니다.
+ */
+export function ownerOf(user: Pick<User, "sid">): string {
+  return createHash("sha256").update(`mg-owner:${user.sid}`).digest("hex").slice(0, 32);
+}
 
 type Store = { users: Map<string, User> };
 const g = globalThis as typeof globalThis & { __miniGamesSessions?: Store };
@@ -66,9 +79,11 @@ export function saveUser(request: Request, rawName: unknown): { user: User; crea
     existing.name = name;
     return { user: existing, created: false };
   }
+  // 서버가 다시 켜져 세션을 잊었더라도, 쿠키가 남아 있으면 같은 기기로 이어 갑니다.
+  const kept = readCookie(request);
   const user: User = {
     id: randomBytes(6).toString("hex"),
-    sid: randomBytes(24).toString("hex"),
+    sid: kept && SID_PATTERN.test(kept) && !store.users.has(kept) ? kept : randomBytes(24).toString("hex"),
     name,
     connections: 0,
     lastSeen: Date.now(),
@@ -90,7 +105,7 @@ export function sessionCookie(request: Request, user: User): string {
     "Path=/",
     "HttpOnly",
     "SameSite=Strict",
-    `Max-Age=${USER_TTL_MS / 1000}`,
+    `Max-Age=${COOKIE_MAX_AGE_S}`,
     secure ? "Secure" : "",
   ]
     .filter(Boolean)

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { post } from "@/lib/client";
 import { useNow } from "@/lib/clock";
+import { useT } from "@/lib/i18n";
 import type { RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Lobby, Option, RankRow, Result, type GameProps } from "./shared";
@@ -24,6 +25,7 @@ const KEYS: Record<string, Dir> = {
 
 function Board({ view }: { view: View }) {
   const s = view.state;
+  const t = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -77,7 +79,7 @@ function Board({ view }: { view: View }) {
     <canvas
       ref={canvasRef}
       role="img"
-      aria-label="게임판"
+      aria-label={t("게임판")}
       className="block w-full touch-none border-2 border-ink"
       style={{ aspectRatio: `${s.width} / ${s.height}`, imageRendering: "pixelated" }}
     />
@@ -97,6 +99,7 @@ function Starting({ startAt }: { startAt: number }) {
 
 export function Snake({ view, send, nameOf }: GameProps<View>) {
   const s = view.state;
+  const t = useT();
   const [speed, setSpeed] = useState("normal");
   const playing = s.phase === "play";
   const lastDir = useRef<Dir | null>(null);
@@ -125,17 +128,17 @@ export function Snake({ view, send, nameOf }: GameProps<View>) {
   if (s.phase === "lobby") {
     return (
       <Lobby view={view} send={send} onStart={() => send({ type: "start", speed })}>
-        <Option label="속도">
+        <Option label={t("속도")}>
           <ToggleGroup
             type="single"
             variant="outline"
-            aria-label="속도"
+            aria-label={t("속도")}
             value={speed}
             onValueChange={(v) => v && setSpeed(v)}
           >
-            <ToggleGroupItem value="slow">느리게</ToggleGroupItem>
-            <ToggleGroupItem value="normal">보통</ToggleGroupItem>
-            <ToggleGroupItem value="fast">빠르게</ToggleGroupItem>
+            <ToggleGroupItem value="slow">{t("느리게")}</ToggleGroupItem>
+            <ToggleGroupItem value="normal">{t("보통")}</ToggleGroupItem>
+            <ToggleGroupItem value="fast">{t("빠르게")}</ToggleGroupItem>
           </ToggleGroup>
         </Option>
       </Lobby>
@@ -154,7 +157,13 @@ export function Snake({ view, send, nameOf }: GameProps<View>) {
         view={view}
         send={send}
         tone={solo || !iPlayed || !s.winnerId ? "neutral" : s.winnerId === view.you ? "win" : "lose"}
-        title={solo ? `${s.snakes[0].score}점` : s.winnerId ? `${nameOf(s.winnerId)} 승리` : "무승부"}
+        title={
+          solo
+            ? t("{n}점", { n: s.snakes[0].score })
+            : s.winnerId
+              ? t("{name} 승리", { name: nameOf(s.winnerId) })
+              : t("무승부")
+        }
       >
         <ol className="flex flex-col gap-2">
           {ranked.map((snake, i) => (
@@ -176,24 +185,24 @@ export function Snake({ view, send, nameOf }: GameProps<View>) {
             <Starting startAt={s.startAt} />
           </div>
           {/* 터치 화면용 방향 버튼 */}
-          <div className="grid grid-cols-3 gap-2 lg:hidden" aria-label="방향">
+          <div className="grid grid-cols-3 gap-2 lg:hidden" aria-label={t("방향")}>
             <span />
-            <Button variant="secondary" size="lg" aria-label="위" onPointerDown={() => turn("U")}>
+            <Button variant="secondary" size="lg" aria-label={t("위")} onPointerDown={() => turn("U")}>
               <ArrowUp />
             </Button>
             <span />
-            <Button variant="secondary" size="lg" aria-label="왼쪽" onPointerDown={() => turn("L")}>
+            <Button variant="secondary" size="lg" aria-label={t("왼쪽")} onPointerDown={() => turn("L")}>
               <ArrowLeft />
             </Button>
-            <Button variant="secondary" size="lg" aria-label="아래" onPointerDown={() => turn("D")}>
+            <Button variant="secondary" size="lg" aria-label={t("아래")} onPointerDown={() => turn("D")}>
               <ArrowDown />
             </Button>
-            <Button variant="secondary" size="lg" aria-label="오른쪽" onPointerDown={() => turn("R")}>
+            <Button variant="secondary" size="lg" aria-label={t("오른쪽")} onPointerDown={() => turn("R")}>
               <ArrowRight />
             </Button>
           </div>
           <p className="hidden text-center text-xs text-muted-foreground lg:block">
-            방향키 또는 WASD로 움직입니다. 흰 테두리가 내 뱀입니다.
+            {t("방향키 또는 WASD로 움직입니다. 흰 테두리가 내 뱀입니다.")}
           </p>
         </div>
       </Screen>
@@ -208,10 +217,10 @@ export function Snake({ view, send, nameOf }: GameProps<View>) {
               <span className="min-w-0 flex-1 truncate font-medium">
                 {nameOf(snake.id)}
                 {snake.id === view.you && (
-                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">나</span>
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">{t("나")}</span>
                 )}
               </span>
-              {!snake.alive && <Skull aria-label="탈락" className="size-4 text-muted-foreground" />}
+              {!snake.alive && <Skull aria-label={t("탈락")} className="size-4 text-muted-foreground" />}
               <span className="font-pixel fs-15 tabular-nums">{snake.score}</span>
             </li>
           ))}

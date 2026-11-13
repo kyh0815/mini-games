@@ -85,7 +85,7 @@ export const reactionGame: GameModule = {
   view(room): ReactionView {
     const s = room.state as State;
     return {
-      ...soloView(s, ["reaction"]),
+      ...soloView(room, s, ["reaction"]),
       phase: s.phase,
       round: s.round,
       rounds: ROUNDS,

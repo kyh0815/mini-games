@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Music, Volume2, VolumeX } from "@/components/icons";
+import { Gear } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useSoundSettings } from "@/hooks/use-sound";
 import { audio } from "@/lib/audio";
+import { LANGS, setLang, useLang, useT, type Lang } from "@/lib/i18n";
 
 /** 첫 입력에서 오디오를 깨우고, 버튼 누르는 소리를 전역으로 붙입니다. */
 export function SoundBoot() {
@@ -41,6 +42,7 @@ function OnOff({
   value: boolean;
   onChange: (next: boolean) => void;
 }) {
+  const t = useT();
   return (
     <ToggleGroup
       type="single"
@@ -50,38 +52,59 @@ function OnOff({
       onValueChange={(next) => next && onChange(next === "on")}
     >
       <ToggleGroupItem value="on" className="h-8 min-w-12">
-        켬
+        {t("켬")}
       </ToggleGroupItem>
       <ToggleGroupItem value="off" className="h-8 min-w-12">
-        끔
+        {t("끔")}
       </ToggleGroupItem>
     </ToggleGroup>
   );
 }
 
-export function SoundControl() {
+/** 헤더의 설정 메뉴: 언어와 소리 */
+export function SettingsControl() {
   const settings = useSoundSettings();
-  const silent = (!settings.music && !settings.sfx) || settings.volume === 0;
+  const lang = useLang();
+  const t = useT();
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon" aria-label="소리 설정">
-          {silent ? <VolumeX /> : settings.music ? <Music /> : <Volume2 />}
+        <Button variant="outline" size="icon" aria-label={t("설정")}>
+          <Gear />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72">
-        <p className="font-pixel fs-1 tracking-wide text-muted-foreground">SOUND</p>
+        <p className="font-pixel fs-1 tracking-wide text-muted-foreground">LANGUAGE</p>
         <div className="flex items-center justify-between gap-3">
-          <Label id="sound-music">배경 음악</Label>
+          <Label id="settings-lang">{t("언어")}</Label>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            aria-labelledby="settings-lang"
+            value={lang}
+            onValueChange={(next) => next && setLang(next as Lang)}
+          >
+            {LANGS.map((l) => (
+              <ToggleGroupItem key={l.value} value={l.value} lang={l.value} className="h-8 min-w-16">
+                {l.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+        <p className="font-pixel mt-1 border-t-2 border-border pt-3 fs-1 tracking-wide text-muted-foreground">
+          SOUND
+        </p>
+        <div className="flex items-center justify-between gap-3">
+          <Label id="sound-music">{t("배경 음악")}</Label>
           <OnOff id="sound-music" value={settings.music} onChange={(music) => audio.update({ music })} />
         </div>
         <div className="flex items-center justify-between gap-3">
-          <Label id="sound-sfx">효과음</Label>
+          <Label id="sound-sfx">{t("효과음")}</Label>
           <OnOff id="sound-sfx" value={settings.sfx} onChange={(sfx) => audio.update({ sfx })} />
         </div>
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <Label id="sound-volume">음량</Label>
+            <Label id="sound-volume">{t("음량")}</Label>
             <span className="text-sm text-muted-foreground tabular-nums">
               {Math.round(settings.volume * 100)}
             </span>

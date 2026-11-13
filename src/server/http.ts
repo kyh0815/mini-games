@@ -46,6 +46,12 @@ export function rateLimit(request: Request, scope: string, limit: number, window
   }
 }
 
+/** 기한이 지난 횟수 기록을 치웁니다. 주기적으로 불러 메모리가 쌓이지 않게 합니다. */
+export function pruneLimits(): void {
+  const now = Date.now();
+  for (const [key, bucket] of buckets) if (bucket.resetAt <= now) buckets.delete(key);
+}
+
 export function fail(err: unknown): Response {
   if (err instanceof GameError) {
     return Response.json({ error: err.message }, { status: 400 });
@@ -64,6 +70,9 @@ const SSE_HEADERS = {
   Connection: "keep-alive",
   "X-Accel-Buffering": "no",
 };
+
+/** 한 연결에 밀려 있어도 되는 메시지 수 */
+const MAX_QUEUED = 300;
 
 type SseWriter = {
   /** event를 생략하면 기본 message 이벤트로 나갑니다. */
@@ -84,6 +93,12 @@ export function sse(request: Request, open: (writer: SseWriter) => () => void): 
       let release = () => {};
       const write = (chunk: string) => {
         if (closed) return;
+        // 받는 쪽이 멈춰서 보낼 것이 계속 쌓이면 연결을 끊습니다.
+        // 브라우저가 곧 다시 붙고, 그때 최신 상태를 통째로 새로 받습니다.
+        if ((controller.desiredSize ?? 0) < -MAX_QUEUED) {
+          cleanup();
+          return;
+        }
         try {
           controller.enqueue(encoder.encode(chunk));
         } catch {

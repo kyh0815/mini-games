@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameSlug } from "@/lib/games";
 import { chosung } from "@/lib/hangul";
 import type { GameAction, RoomView, Stroke } from "@/lib/types";
-import { CATEGORIES } from "../data/words";
+import { CATEGORIES, bilingual, matchesWord } from "../data/words";
 import { GameError, createRoom, dispatch, getRoom, joinRoom, subscribe, viewFor, type Player } from "../rooms";
 import type { User } from "../session";
 
@@ -116,8 +116,9 @@ describe("liar", () => {
     expect(view(host).phase).toBe("vote");
     act(liar, { type: "vote", target: citizens[0].id });
     expect(view(host).phase).toBe("guess");
-    expect(() => act(citizens[0], { type: "guess", text: word })).toThrow(GameError);
-    act(liar, { type: "guess", text: ` ${word} ` });
+    expect(() => act(citizens[0], { type: "guess", text: word.ko })).toThrow(GameError);
+    // 라이어는 한국어로든 일본어로든 답할 수 있습니다.
+    act(liar, { type: "guess", text: ` ${word.ja} ` });
     expect(view(host)).toMatchObject({ phase: "result", winner: "liar" });
   });
 
@@ -285,7 +286,7 @@ describe("draw", () => {
     expect(view(drawer())).toMatchObject({ phase: "draw", word });
     for (const p of guessers()) {
       expect(view(p).word).toBeNull();
-      expect(view(p).mask).toBe("_".repeat(word.length));
+      expect(view(p).mask).toEqual({ ko: "_".repeat(word.ko.length), ja: "_".repeat(word.ja.length) });
     }
   });
 
@@ -344,8 +345,8 @@ describe("draw", () => {
     act(drawer(), { type: "choose", index: 0 });
     const d = drawer();
     const [g1, g2] = guessers();
-    const word = view(d).word!;
-    const texts = () => view(host).chat.filter((m) => m.kind === "chat").map((m) => m.text);
+    const word = view(d).word!.ko;
+    const texts = () => view(host).chat.flatMap((m) => (m.kind === "chat" ? [m.text] : []));
 
     expect(() => act(d, { type: "guess", text: word })).toThrow(GameError);
     // 정답의 일부, 정답을 포함한 더 긴 말은 정답이 아닙니다.
@@ -365,14 +366,14 @@ describe("draw", () => {
     const word = view(d).word!;
 
     vi.advanceTimersByTime(15_000);
-    act(g1, { type: "guess", text: ` ${word} ` });
+    act(g1, { type: "guess", text: ` ${word.ko} ` });
     // 한 명이 맞히면 남은 시간과 상관없이 바로 공개 단계로 넘어갑니다.
     expect(view(g2)).toMatchObject({ phase: "reveal", word, guessed: { [g1.id]: 85 } });
     expect(view(host).scores[g1.id]).toBe(85);
     expect(view(host).scores[d.id]).toBe(43);
     // 맞힌 말도 채팅에 그대로 남습니다.
-    expect(view(host).chat.map((m) => m.text)).toContain(word);
-    expect(view(host).chat.at(-1)).toMatchObject({ kind: "correct" });
+    expect(view(host).chat.at(-2)).toMatchObject({ kind: "chat", text: word.ko, playerId: g1.id });
+    expect(view(host).chat.at(-1)).toMatchObject({ kind: "correct", points: 85, playerId: g1.id });
 
     vi.advanceTimersByTime(5_000);
     expect(view(host).phase).toBe("choose");
@@ -384,11 +385,53 @@ describe("draw", () => {
     act(drawer(), { type: "choose", index: 0 });
     const word = view(drawer()).word!;
     vi.advanceTimersByTime(30_000);
-    expect(view(guessers()[0]).mask).toBe(chosung(word));
+    // 힌트: 한국어는 초성, 일본어는 첫 글자
+    const hint = view(guessers()[0]).mask;
+    expect(hint.ko).toBe(chosung(word.ko));
+    expect(hint.ja).toBe(word.ja[0] + "_".repeat(Array.from(word.ja).length - 1));
     vi.advanceTimersByTime(30_000);
     expect(view(host).phase).toBe("reveal");
+    expect(view(host).chat.at(-1)).toMatchObject({ kind: "timeout", word });
     // 남은 두 차례: 고르기 12초 + 그리기 60초 + 공개 5초
     vi.advanceTimersByTime(5_000 + (12_000 + 60_000 + 5_000) * 2);
     expect(view(host).phase).toBe("result");
   });
 });
+
+describe("bilingual words", () => {
+  it("has a Japanese form for every word", () => {
+    for (const category of CATEGORIES) {
+      for (const word of category.words) expect(bilingual(word).ja, word).not.toBe(word);
+    }
+  });
+
+  it("accepts the Korean word or any Japanese spelling, and nothing else", () => {
+    expect(matchesWord("고양이", "고양이")).toBe(true);
+    expect(matchesWord("고양이", " 猫 ")).toBe(true);
+    expect(matchesWord("고양이", "ねこ")).toBe(true);
+    // 히라가나·가타카나, 전각·반각은 구분하지 않습니다.
+    expect(matchesWord("고양이", "ネコ")).toBe(true);
+    expect(matchesWord("라면", "らーめん")).toBe(true);
+    expect(matchesWord("승무원", "ｃａ")).toBe(true);
+    expect(matchesWord("고양이", "猫ちゃん")).toBe(false);
+    expect(matchesWord("고양이", "고양")).toBe(false);
+    expect(matchesWord("고양이", "犬")).toBe(false);
+  });
+
+  it("lets a Japanese speaker win the drawing round", () => {
+    const users = ["그림가", "그림나"].map(user);
+    const room = createRoom("draw", users[0]);
+    const players = users.map((u) => joinRoom(room, u));
+    for (const p of players) subscribe(room, p, { push: () => {}, send: () => {}, end: () => {} });
+    dispatch(room, players[0], { type: "start", drawSeconds: 60 });
+    const state = () => viewFor(room, players[0].id).state as Extract<RoomView, { game: "draw" }>["state"];
+    const drawer = players.find((p) => p.id === state().drawerId)!;
+    const guesser = players.find((p) => p !== drawer)!;
+    dispatch(room, drawer, { type: "choose", index: 0 });
+    const word = (viewFor(room, drawer.id).state as ReturnType<typeof state>).word!;
+    dispatch(room, guesser, { type: "guess", text: word.ja });
+    expect(state().phase).toBe("reveal");
+    expect(state().guessed[guesser.id]).toBeGreaterThan(0);
+  });
+});
+

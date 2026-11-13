@@ -8,6 +8,7 @@ import { drawGame } from "./draw";
 import { liarGame } from "./liar";
 import { memoryGame } from "./memory";
 import { reactionGame } from "./reaction";
+import { sequenceGame } from "./sequence";
 import { snakeGame } from "./snake";
 import { stairsGame } from "./stairs";
 import { typingGame } from "./typing";
@@ -37,4 +38,5 @@ export const gameModules: Record<GameSlug, GameModule> = {
   reaction: reactionGame,
   aim: aimGame,
   stairs: stairsGame,
+  sequence: sequenceGame,
 };

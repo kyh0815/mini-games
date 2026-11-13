@@ -1,3 +1,7 @@
+import { normalize } from "@/lib/hangul";
+import type { Word } from "@/lib/types";
+import { WORDS_JA } from "./words-ja";
+
 export type Category = { key: string; label: string; words: string[] };
 
 /** 초성 퀴즈와 라이어 게임이 함께 쓰는 주제별 단어 */
@@ -75,3 +79,21 @@ export const CATEGORIES: Category[] = [
 ];
 
 export const CATEGORY_OPTIONS = CATEGORIES.map(({ key, label }) => ({ key, label }));
+
+/** 한국어 단어에 일본어 표기를 붙입니다. 표기가 없으면 한국어 그대로 보입니다. */
+export function bilingual(word: string): Word {
+  return { ko: word, ja: WORDS_JA[word]?.[0] ?? word };
+}
+
+/** 띄어쓰기·대소문자·전각/반각·히라가나/가타카나의 차이를 없앱니다. */
+function fold(text: string): string {
+  return normalize(text.normalize("NFKC")).replace(/[\u30a1-\u30f6]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0x60),
+  );
+}
+
+/** 입력한 말이 그 단어의 한국어 또는 일본어 표기와 정확히 같은지 봅니다. */
+export function matchesWord(word: string, text: string): boolean {
+  const given = fold(text);
+  return given === fold(word) || (WORDS_JA[word] ?? []).some((form) => fold(form) === given);
+}

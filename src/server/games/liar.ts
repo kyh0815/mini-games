@@ -1,6 +1,5 @@
-import { normalize } from "@/lib/hangul";
 import type { LiarView } from "@/lib/types";
-import { CATEGORIES, CATEGORY_OPTIONS } from "../data/words";
+import { CATEGORIES, CATEGORY_OPTIONS, bilingual, matchesWord } from "../data/words";
 import {
   GameError,
   clearRoomTimer,
@@ -132,7 +131,7 @@ export const liarGame: GameModule = {
         clearRoomTimer(room);
         s.liarGuess = text;
         s.phase = "result";
-        s.winner = normalize(text) === normalize(s.word) ? "liar" : "citizens";
+        s.winner = matchesWord(s.word, text) ? "liar" : "citizens";
         return;
       }
       default:
@@ -153,7 +152,7 @@ export const liarGame: GameModule = {
       youPlaying: playing,
       youAreLiar: isLiar,
       // 제시어는 시민에게만 보냅니다. 라이어와 관전자의 화면에는 아예 내려가지 않습니다.
-      word: done || (playing && !isLiar) ? s.word || null : null,
+      word: (done || (playing && !isLiar)) && s.word ? bilingual(s.word) : null,
       voted: Object.keys(s.votes),
       yourVote: s.votes[playerId] ?? null,
       votes: done ? s.votes : null,

@@ -1,7 +1,7 @@
 import { DRAW_COLORS, PAPER, PEN_SIZE, SIZE_MAX, SIZE_MIN } from "@/lib/draw";
-import { chosung, normalize } from "@/lib/hangul";
-import type { DrawChat, DrawView, Stroke } from "@/lib/types";
-import { CATEGORIES, CATEGORY_OPTIONS } from "../data/words";
+import { chosung } from "@/lib/hangul";
+import type { DrawChat, DrawView, Stroke, Word } from "@/lib/types";
+import { CATEGORIES, CATEGORY_OPTIONS, bilingual, matchesWord } from "../data/words";
 import {
   GameError,
   clearRoomTimer,
@@ -74,8 +74,13 @@ function init(): State {
   };
 }
 
-function say(s: State, kind: DrawChat["kind"], text: string, playerId: string | null = null): void {
-  s.chat = [...s.chat, { id: ++s.chatSeq, playerId, kind, text }].slice(-MAX_CHAT);
+type Line =
+  | { kind: "chat"; text: string }
+  | { kind: "correct"; points: number }
+  | { kind: "timeout"; word: Word };
+
+function say(s: State, line: Line, playerId: string | null = null): void {
+  s.chat = [...s.chat, { id: ++s.chatSeq, playerId, ...line }].slice(-MAX_CHAT);
 }
 
 function clearCanvas(room: Room): void {
@@ -143,14 +148,22 @@ function endTurn(room: Room, timedOut: boolean): void {
   s.phase = "reveal";
   s.deadline = Date.now() + REVEAL_MS;
   s.totalMs = REVEAL_MS;
-  if (timedOut) say(s, "system", `시간 종료. 정답은 '${s.word}'`);
+  if (timedOut) say(s, { kind: "timeout", word: bilingual(s.word) });
   setRoomTimer(room, REVEAL_MS, () => nextTurn(room));
 }
 
-function mask(word: string, hinted: boolean): string {
-  return Array.from(hinted ? chosung(word) : word)
-    .map((ch) => (ch === " " ? " " : hinted ? ch : "_"))
+function blank(text: string, keep: (ch: string, i: number) => boolean): string {
+  return Array.from(text)
+    .map((ch, i) => (ch === " " || keep(ch, i) ? ch : "_"))
     .join("");
+}
+
+/** 글자 수만 보이는 빈칸. 힌트가 열리면 한국어는 초성을, 일본어는 첫 글자를 보여 줍니다. */
+function mask(word: string, hinted: boolean): Word {
+  return {
+    ko: blank(hinted ? chosung(word) : word, () => hinted),
+    ja: blank(bilingual(word).ja, (_, i) => hinted && i === 0),
+  };
 }
 
 function validPoints(raw: unknown): number[] | null {
@@ -248,15 +261,15 @@ export const drawGame: GameModule = {
         const text = typeof action.text === "string" ? action.text.trim().slice(0, 30) : "";
         if (!text) return "quiet";
         if (s.phase !== "draw") {
-          say(s, "chat", text, player.id);
+          say(s, { kind: "chat", text }, player.id);
           return;
         }
         // 답을 아는 사람이 채팅으로 알려 주지 못하게 막습니다.
         if (isDrawer) throw new GameError("그리는 사람은 채팅할 수 없습니다.");
         // 입력한 말은 맞든 틀리든 그대로 채팅에 남깁니다.
-        say(s, "chat", text, player.id);
-        // 띄어쓰기와 대소문자만 무시하고, 글자가 전부 같아야 정답입니다.
-        if (normalize(text) !== normalize(s.word)) return;
+        say(s, { kind: "chat", text }, player.id);
+        // 띄어쓰기와 대소문자만 무시하고, 글자가 전부 같아야 정답입니다. 한국어든 일본어든 받습니다.
+        if (!matchesWord(s.word, text)) return;
         const left = Math.max(0, s.deadline - Date.now()) / s.totalMs;
         const points = 40 + Math.round(60 * left);
         s.guessed = { [player.id]: points };
@@ -266,7 +279,7 @@ export const drawGame: GameModule = {
           s.drawerGain = Math.round(points / 2);
           s.scores[s.drawerId] = (s.scores[s.drawerId] ?? 0) + s.drawerGain;
         }
-        say(s, "correct", `${player.name} 님 정답! +${points}점`, player.id);
+        say(s, { kind: "correct", points }, player.id);
         // 누군가 맞히면 그 차례는 바로 끝납니다.
         endTurn(room, false);
         return;
@@ -287,10 +300,10 @@ export const drawGame: GameModule = {
       totalTurns: s.totalTurns,
       drawerId: s.drawerId,
       youAreDrawer: isDrawer,
-      choices: s.phase === "choose" && isDrawer ? s.choices : null,
+      choices: s.phase === "choose" && isDrawer ? s.choices.map(bilingual) : null,
       // 제시어는 알아도 되는 사람에게만 보냅니다.
-      word: active && knows ? s.word : null,
-      mask: active ? mask(s.word, s.hinted || s.phase === "reveal") : "",
+      word: active && knows ? bilingual(s.word) : null,
+      mask: active ? mask(s.word, s.hinted || s.phase === "reveal") : { ko: "", ja: "" },
       deadline: s.deadline,
       totalMs: s.totalMs,
       guessed: s.guessed,

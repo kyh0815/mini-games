@@ -4,6 +4,7 @@ import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react
 import { post } from "@/lib/client";
 import { CANVAS_H, CANVAS_W, PAPER } from "@/lib/draw";
 import { drawStore } from "@/lib/draw-store";
+import { useT } from "@/lib/i18n";
 import type { Stroke } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ export function DrawCanvas({
   size: number;
   className?: string;
 }) {
+  const t = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const active = useRef<{ id: string; lastX: number; lastY: number } | null>(null);
   // 보낼 점을 줄 세워 두었다가, 앞선 전송이 끝난 뒤에 보냅니다. 순서가 뒤바뀌면 선이 엉킵니다.
@@ -143,7 +145,7 @@ export function DrawCanvas({
       onPointerUp={end}
       onPointerCancel={end}
       role="img"
-      aria-label="그림판"
+      aria-label={t("그림판")}
       className={cn(
         "block aspect-[4/3] w-full touch-none bg-[#f3efe4] select-none",
         canDraw ? "cursor-crosshair" : "cursor-default",

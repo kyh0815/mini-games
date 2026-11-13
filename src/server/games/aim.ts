@@ -5,10 +5,10 @@ import type { GameModule } from "./index";
 import { record, soloView, type SoloState } from "./solo";
 
 const COUNTDOWN_MS = 3_000;
-const PLAY_MS = 30_000;
+const PLAY_MS = 20_000;
 /** 마지막 보고가 도착할 여유 */
 const GRACE_MS = 600;
-const TARGETS = 240;
+const TARGETS = 180;
 /** 사람이 낼 수 있는 가장 빠른 연속 명중 간격 */
 const MIN_HIT_MS = 110;
 
@@ -32,7 +32,7 @@ function finish(room: Room): void {
   const shots = s.hits + s.misses;
   const accuracy = shots > 0 ? Math.round((s.hits / shots) * 100) : 0;
   // 점수가 같으면 명중률이 높은 쪽이 위로 가도록 소수 자리에 명중률을 싣습니다.
-  record(room, s, "aim", s.hits + accuracy / 1000, `명중률 ${accuracy}%`);
+  record(room, s, "aim-20", s.hits + accuracy / 1000, `명중률 ${accuracy}%`);
 }
 
 export const aimGame: GameModule = {
@@ -66,7 +66,7 @@ export const aimGame: GameModule = {
   view(room): AimView {
     const s = room.state as State;
     return {
-      ...soloView(s, ["aim"]),
+      ...soloView(room, s, ["aim-20"]),
       phase: s.phase,
       startAt: s.startAt,
       deadline: s.deadline,

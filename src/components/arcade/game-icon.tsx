@@ -5,6 +5,7 @@ import {
   Hash,
   Keyboard,
   LinkIcon,
+  ListBox,
   MessageText,
   Pencil,
   Snake,
@@ -29,6 +30,7 @@ const ICONS: Record<GameSlug, ComponentType<SVGProps<SVGSVGElement>>> = {
   reaction: Zap,
   aim: Target,
   stairs: TrendingUp,
+  sequence: ListBox,
 };
 
 /** 게임 대표색 바탕의 네모 아이콘. 게임을 구분하는 표식으로 씁니다. */
