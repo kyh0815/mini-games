@@ -268,6 +268,12 @@ describe("memory", () => {
 });
 
 describe("reaction", () => {
+  /** 신호까지의 대기 시간은 무작위라서, 신호가 뜰 때까지 조금씩 시간을 흘립니다. */
+  function waitForGo(view: () => ViewOf<"reaction">) {
+    for (let i = 0; i < 100 && view().phase !== "go"; i++) vi.advanceTimersByTime(50);
+    expect(view().phase).toBe("go");
+  }
+
   it("restarts the round on a false start and records the average", () => {
     const { host, act, view } = setup("reaction", ["반응가"]);
     act(host, { type: "start" });
@@ -277,10 +283,10 @@ describe("reaction", () => {
     expect(view(host).phase).toBe("wait");
 
     for (let round = 1; round <= 5; round++) {
-      vi.advanceTimersByTime(4_500);
-      expect(view(host)).toMatchObject({ phase: "go", round });
-      vi.advanceTimersByTime(200 + round * 10);
-      // 서버가 신호를 보낸 뒤 흐른 시간보다 짧게 주장할 수는 있지만, 사람이 낼 수 없는 값은 안 됩니다.
+      waitForGo(() => view(host));
+      expect(view(host).round).toBe(round);
+      vi.advanceTimersByTime(250 + round * 10);
+      // 기기에서 잰 값이 서버가 본 경과 시간보다 짧으면 그 값을 받습니다(통신 지연 제외).
       act(host, { type: "tap", ms: 190 + round * 10 });
       vi.advanceTimersByTime(1_200);
     }
@@ -292,14 +298,25 @@ describe("reaction", () => {
   it("treats impossible times as a false start and never trusts more than the real elapsed time", () => {
     const { host, act, view } = setup("reaction", ["반응나"]);
     act(host, { type: "start" });
-    vi.advanceTimersByTime(4_500);
+    waitForGo(() => view(host));
     act(host, { type: "tap", ms: 5 });
     expect(view(host).phase).toBe("early");
-    vi.advanceTimersByTime(1_400 + 4_500);
-    // 신호는 1.5~4.5초 사이 어느 시점에 나갔으므로, 실제로 흐른 시간은 3초를 넘지 않습니다.
+    vi.advanceTimersByTime(1_400);
+    waitForGo(() => view(host));
+    vi.advanceTimersByTime(300);
     act(host, { type: "tap", ms: 100_000 });
+    // 신호가 뜬 것을 50ms 간격으로 확인했으므로 실제 경과는 300~350ms입니다.
     expect(view(host).times).toHaveLength(1);
-    expect(view(host).times[0]).toBeLessThanOrEqual(3_000);
+    expect(view(host).times[0]).toBeGreaterThanOrEqual(300);
+    expect(view(host).times[0]).toBeLessThanOrEqual(350);
+  });
+
+  it("restarts the round when the player is too slow", () => {
+    const { host, act, view } = setup("reaction", ["반응다"]);
+    act(host, { type: "start" });
+    waitForGo(() => view(host));
+    vi.advanceTimersByTime(3_000);
+    expect(view(host)).toMatchObject({ phase: "early", round: 1, times: [] });
   });
 });
 
