@@ -1,4 +1,4 @@
-import { DRAW_COLORS, DRAW_SIZES, ERASER_SIZE, PAPER } from "@/lib/draw";
+import { DRAW_COLORS, PAPER, PEN_SIZE, SIZE_MAX, SIZE_MIN } from "@/lib/draw";
 import { chosung, normalize } from "@/lib/hangul";
 import type { DrawChat, DrawView, Stroke } from "@/lib/types";
 import { CATEGORIES, CATEGORY_OPTIONS } from "../data/words";
@@ -22,7 +22,6 @@ const CYCLES = [1, 2, 3];
 
 // 지우개는 종이색으로 그리는 굵은 펜입니다.
 const ALLOWED_COLORS = [...DRAW_COLORS, PAPER];
-const ALLOWED_SIZES = [...DRAW_SIZES, ERASER_SIZE];
 
 const MAX_STROKES = 1500;
 const MAX_POINTS = 60_000;
@@ -134,17 +133,17 @@ function startDrawing(room: Room, index: number): void {
     if (s.phase !== "draw" || s.turn !== turn) return;
     s.hinted = true;
     setRoomTimer(room, s.totalMs / 2, () => {
-      if (s.phase === "draw" && s.turn === turn) endTurn(room);
+      if (s.phase === "draw" && s.turn === turn) endTurn(room, true);
     });
   });
 }
 
-function endTurn(room: Room): void {
+function endTurn(room: Room, timedOut: boolean): void {
   const s = room.state as State;
   s.phase = "reveal";
   s.deadline = Date.now() + REVEAL_MS;
   s.totalMs = REVEAL_MS;
-  say(s, "system", `정답은 '${s.word}'`);
+  if (timedOut) say(s, "system", `시간 종료. 정답은 '${s.word}'`);
   setRoomTimer(room, REVEAL_MS, () => nextTurn(room));
 }
 
@@ -221,9 +220,11 @@ export const drawGame: GameModule = {
           const color = ALLOWED_COLORS.includes(action.color as string)
             ? (action.color as string)
             : DRAW_COLORS[0];
-          const size = ALLOWED_SIZES.includes(action.size as number)
-            ? (action.size as number)
-            : DRAW_SIZES[1];
+          const rawSize = action.size;
+          const size =
+            typeof rawSize === "number" && rawSize >= SIZE_MIN && rawSize <= SIZE_MAX
+              ? Math.round(rawSize)
+              : PEN_SIZE;
           s.strokes.push({ id, color, size, points: [...points] });
         }
         s.pointCount += points.length;
@@ -252,22 +253,22 @@ export const drawGame: GameModule = {
         }
         // 답을 아는 사람이 채팅으로 알려 주지 못하게 막습니다.
         if (isDrawer) throw new GameError("그리는 사람은 채팅할 수 없습니다.");
-        if (player.id in s.guessed) throw new GameError("이미 맞혔습니다. 다음 차례를 기다려 주세요.");
-        if (normalize(text) !== normalize(s.word)) {
-          say(s, "chat", text, player.id);
-          return;
-        }
+        // 입력한 말은 맞든 틀리든 그대로 채팅에 남깁니다.
+        say(s, "chat", text, player.id);
+        // 띄어쓰기와 대소문자만 무시하고, 글자가 전부 같아야 정답입니다.
+        if (normalize(text) !== normalize(s.word)) return;
         const left = Math.max(0, s.deadline - Date.now()) / s.totalMs;
         const points = 40 + Math.round(60 * left);
-        s.guessed[player.id] = points;
+        s.guessed = { [player.id]: points };
         s.scores[player.id] = (s.scores[player.id] ?? 0) + points;
         if (s.drawerId) {
-          s.drawerGain += 20;
-          s.scores[s.drawerId] = (s.scores[s.drawerId] ?? 0) + 20;
+          // 빨리 알아보게 그릴수록 그린 사람도 많이 받습니다.
+          s.drawerGain = Math.round(points / 2);
+          s.scores[s.drawerId] = (s.scores[s.drawerId] ?? 0) + s.drawerGain;
         }
-        say(s, "correct", `${player.name} 님이 맞혔습니다!`, player.id);
-        const waiting = onlineIds(room).filter((id) => id !== s.drawerId && !(id in s.guessed));
-        if (waiting.length === 0) endTurn(room);
+        say(s, "correct", `${player.name} 님 정답! +${points}점`, player.id);
+        // 누군가 맞히면 그 차례는 바로 끝납니다.
+        endTurn(room, false);
         return;
       }
       default:
@@ -277,7 +278,7 @@ export const drawGame: GameModule = {
   view(room, playerId): DrawView {
     const s = room.state as State;
     const isDrawer = s.drawerId === playerId;
-    const knows = isDrawer || playerId in s.guessed || s.phase === "reveal";
+    const knows = isDrawer || s.phase === "reveal";
     const active = s.phase === "draw" || s.phase === "reveal";
     return {
       phase: s.phase,

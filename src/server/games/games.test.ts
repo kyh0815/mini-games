@@ -296,6 +296,19 @@ describe("draw", () => {
     expect(view(drawer())).toMatchObject({ phase: "draw", word: first });
   });
 
+  it("accepts any brush size in range", () => {
+    const { drawer, guessers, act, events } = started();
+    act(drawer(), { type: "choose", index: 0 });
+    act(drawer(), { type: "stroke", id: "thin", color: "#1d1d21", size: 2, points: [1, 1] });
+    act(drawer(), { type: "stroke", id: "mid", color: "#1d1d21", size: 17, points: [2, 2] });
+    act(drawer(), { type: "stroke", id: "thick", color: "#1d1d21", size: 60, points: [3, 3] });
+    const sizes = events
+      .get(guessers()[0].id)!
+      .filter((e) => e.event === "stroke")
+      .map((e) => (e.data as Stroke).size);
+    expect(sizes).toEqual([2, 17, 60]);
+  });
+
   it("relays strokes to the others without resending the whole view", () => {
     const { drawer, guessers, act, events } = started();
     act(drawer(), { type: "choose", index: 0 });
@@ -323,31 +336,44 @@ describe("draw", () => {
     act(drawer(), { type: "stroke", id: "b", color: "javascript:x", size: 3, points: [-50, 5000] });
     const got = events.get(guessers()[0].id)!.filter((e) => e.event === "stroke");
     expect(got).toHaveLength(1);
-    expect(got[0].data).toMatchObject({ color: "#1d1d21", size: 10, points: [0, 1000] });
+    expect(got[0].data).toMatchObject({ color: "#1d1d21", size: 3, points: [0, 1000] });
   });
 
-  it("scores guesses, hides the answer from chat, and ends the turn when everyone has it", () => {
+  it("shows every message in chat and only accepts the exact word", () => {
+    const { drawer, guessers, act, view, host } = started();
+    act(drawer(), { type: "choose", index: 0 });
+    const d = drawer();
+    const [g1, g2] = guessers();
+    const word = view(d).word!;
+    const texts = () => view(host).chat.filter((m) => m.kind === "chat").map((m) => m.text);
+
+    expect(() => act(d, { type: "guess", text: word })).toThrow(GameError);
+    // 정답의 일부, 정답을 포함한 더 긴 말은 정답이 아닙니다.
+    act(g1, { type: "guess", text: word.slice(0, -1) });
+    act(g2, { type: "guess", text: `${word}요` });
+    act(g1, { type: "guess", text: "전혀 다른 말" });
+    expect(view(host).phase).toBe("draw");
+    expect(texts()).toEqual([word.slice(0, -1), `${word}요`, "전혀 다른 말"]);
+    expect(view(host).scores[g1.id]).toBe(0);
+  });
+
+  it("ends the turn as soon as someone gets it and scores both players", () => {
     const { drawer, guessers, act, view, host } = started();
     act(drawer(), { type: "choose", index: 0 });
     const d = drawer();
     const [g1, g2] = guessers();
     const word = view(d).word!;
 
-    expect(() => act(d, { type: "guess", text: word })).toThrow(GameError);
-    act(g1, { type: "guess", text: "오답" });
-    expect(view(host).chat.at(-1)).toMatchObject({ kind: "chat", text: "오답" });
-
     vi.advanceTimersByTime(15_000);
     act(g1, { type: "guess", text: ` ${word} ` });
-    expect(view(g1).word).toBe(word);
-    expect(view(g2).word).toBeNull();
-    expect(view(host).chat.every((m) => !m.text.includes(word))).toBe(true);
+    // 한 명이 맞히면 남은 시간과 상관없이 바로 공개 단계로 넘어갑니다.
+    expect(view(g2)).toMatchObject({ phase: "reveal", word, guessed: { [g1.id]: 85 } });
     expect(view(host).scores[g1.id]).toBe(85);
-    expect(view(host).scores[d.id]).toBe(20);
-    expect(() => act(g1, { type: "guess", text: "힌트" })).toThrow(GameError);
+    expect(view(host).scores[d.id]).toBe(43);
+    // 맞힌 말도 채팅에 그대로 남습니다.
+    expect(view(host).chat.map((m) => m.text)).toContain(word);
+    expect(view(host).chat.at(-1)).toMatchObject({ kind: "correct" });
 
-    act(g2, { type: "guess", text: word });
-    expect(view(g2)).toMatchObject({ phase: "reveal", word });
     vi.advanceTimersByTime(5_000);
     expect(view(host).phase).toBe("choose");
     expect(view(host).drawerId).not.toBe(d.id);

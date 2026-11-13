@@ -46,6 +46,9 @@ function Slider({
       </SliderPrimitive.Track>
       {Array.from({ length: _values.length }, (_, index) => (
         <SliderPrimitive.Thumb
+          // 이름은 실제로 조작하는 손잡이에 붙어야 보조 기술이 읽어 줍니다.
+          aria-label={props["aria-label"]}
+          aria-labelledby={props["aria-labelledby"]}
           data-slot="slider-thumb"
           key={index}
           className="relative block size-5 shrink-0 border-2 border-ink bg-foreground ring-ring transition-[color,box-shadow] focus-visible:ring-2 select-none after:absolute after:-inset-2 hover:ring-1 focus-visible:ring-1 focus-visible:outline-hidden active:ring-1 disabled:pointer-events-none disabled:opacity-50"

@@ -11,8 +11,10 @@ export const DRAW_COLORS = [
   "#8a5a3c",
 ];
 export const COLOR_NAMES = ["검정", "빨강", "주황", "노랑", "초록", "파랑", "보라", "갈색"];
-/** 굵기(논리 좌표 800×600 기준 픽셀) */
-export const DRAW_SIZES = [4, 10, 22];
-export const ERASER_SIZE = 40;
+/** 굵기 범위(논리 좌표 800×600 기준 픽셀). 펜과 지우개가 같은 범위를 씁니다. */
+export const SIZE_MIN = 2;
+export const SIZE_MAX = 60;
+export const PEN_SIZE = 8;
+export const ERASER_SIZE = 30;
 export const CANVAS_W = 800;
 export const CANVAS_H = 600;

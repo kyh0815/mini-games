@@ -93,13 +93,13 @@ export type DrawView = {
   youAreDrawer: boolean;
   /** 그리는 사람에게만, 고르는 단계에서만 */
   choices: string[] | null;
-  /** 그리는 사람과 이미 맞힌 사람에게, 그리고 공개 단계에서 모두에게 */
+  /** 그리는 사람에게, 그리고 공개 단계에서 모두에게 */
   word: string | null;
   /** 글자 수만 보이는 빈칸. 힌트가 열리면 초성으로 바뀝니다. */
   mask: string;
   deadline: number;
   totalMs: number;
-  /** 이번 차례에 맞힌 사람과 얻은 점수 */
+  /** 이번 차례에 맞힌 사람과 얻은 점수. 먼저 맞힌 한 명뿐입니다. */
   guessed: Record<string, number>;
   drawerGain: number;
   scores: Record<string, number>;

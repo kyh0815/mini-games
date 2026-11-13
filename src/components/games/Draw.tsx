@@ -8,9 +8,10 @@ import { Check, Eraser, Pencil, Send, Trash, Undo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { COLOR_NAMES, DRAW_COLORS, DRAW_SIZES, ERASER_SIZE, PAPER } from "@/lib/draw";
+import { COLOR_NAMES, DRAW_COLORS, ERASER_SIZE, PAPER, PEN_SIZE, SIZE_MAX, SIZE_MIN } from "@/lib/draw";
 import { drawStore } from "@/lib/draw-store";
 import type { RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -48,9 +49,8 @@ function Chat({ view, send, nameOf }: GameProps<View>) {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [lastId]);
 
-  const drawing = s.phase === "draw";
-  const guessed = view.you in s.guessed;
-  const blocked = drawing && (s.youAreDrawer || guessed);
+  // 그리는 사람만 그리는 동안 채팅이 막힙니다. (답을 알려 줄 수 있어서)
+  const blocked = s.phase === "draw" && s.youAreDrawer;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!text.trim() || blocked) return;
@@ -69,7 +69,7 @@ function Chat({ view, send, nameOf }: GameProps<View>) {
           m.kind === "chat" ? (
             <li key={m.id} className="break-all">
               <span className="font-semibold">{nameOf(m.playerId)}</span>{" "}
-              <span className="text-muted-foreground">{m.text}</span>
+              <span className="text-foreground/80">{m.text}</span>
             </li>
           ) : (
             <li
@@ -89,7 +89,7 @@ function Chat({ view, send, nameOf }: GameProps<View>) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={
-            !blocked ? "정답 또는 채팅" : s.youAreDrawer ? "그리는 중에는 채팅할 수 없습니다" : "정답을 맞혔습니다"
+            blocked ? "그리는 중에는 채팅할 수 없습니다" : "정답 또는 채팅"
           }
           aria-label="정답 또는 채팅"
           maxLength={30}
@@ -140,26 +140,37 @@ function Toolbar({
               }}
               style={{ backgroundColor: c }}
               className={cn(
-                "size-8 border-2 outline-none transition-transform focus-visible:ring-2 focus-visible:ring-ring",
+                "size-7 border-2 outline-none transition-transform focus-visible:ring-2 focus-visible:ring-ring",
                 on ? "-translate-y-1 border-foreground" : "border-ink hover:-translate-y-0.5",
               )}
             />
           );
         })}
       </div>
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        aria-label="굵기"
-        value={String(size)}
-        onValueChange={(v) => v && onSize(Number(v))}
-      >
-        {DRAW_SIZES.map((n, i) => (
-          <ToggleGroupItem key={n} value={String(n)} aria-label={["가늘게", "보통", "굵게"][i]} className="min-w-10 px-0">
-            <span className="rounded-full bg-current" style={{ width: 4 + i * 5, height: 4 + i * 5 }} />
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      <div className="flex items-center gap-3">
+        {/* 지금 굵기와 색을 실제 크기에 가깝게 보여 줍니다 */}
+        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center border-2 border-ink bg-[#f3efe4]">
+          <span
+            className="rounded-full"
+            style={{
+              width: Math.min(34, size * 0.75),
+              height: Math.min(34, size * 0.75),
+              backgroundColor: eraser ? "transparent" : color,
+              boxShadow: eraser ? "inset 0 0 0 2px #1d1d21" : undefined,
+            }}
+          />
+        </span>
+        <Slider
+          aria-label={eraser ? "지우개 굵기" : "붓 굵기"}
+          min={SIZE_MIN}
+          max={SIZE_MAX}
+          step={1}
+          value={[size]}
+          onValueChange={([v]) => onSize(v)}
+          className="w-32"
+        />
+        <span className="w-6 text-sm text-muted-foreground tabular-nums">{size}</span>
+      </div>
       <div className="ml-auto flex gap-1.5">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -218,8 +229,11 @@ export function Draw({ view, send, nameOf }: GameProps<View>) {
   const [cycles, setCycles] = useState("1");
   const [drawSeconds, setDrawSeconds] = useState("80");
   const [color, setColor] = useState(DRAW_COLORS[0]);
-  const [size, setSize] = useState(DRAW_SIZES[1]);
+  // 펜과 지우개는 굵기를 따로 기억합니다.
+  const [penSize, setPenSize] = useState(PEN_SIZE);
+  const [eraserSize, setEraserSize] = useState(ERASER_SIZE);
   const [eraser, setEraser] = useState(false);
+  const size = eraser ? eraserSize : penSize;
 
   if (s.phase === "lobby") {
     return (
@@ -329,7 +343,7 @@ export function Draw({ view, send, nameOf }: GameProps<View>) {
               ) : s.word ? (
                 <span className="flex items-baseline gap-2">
                   <span className="text-xs text-muted-foreground">
-                    {s.phase === "reveal" ? "정답" : s.youAreDrawer ? "제시어" : "정답!"}
+                    {s.phase === "reveal" ? "정답" : "제시어"}
                   </span>
                   <span className="font-pixel fs-2 text-game">{s.word}</span>
                 </span>
@@ -350,7 +364,7 @@ export function Draw({ view, send, nameOf }: GameProps<View>) {
             code={view.code}
             canDraw={canDraw}
             color={eraser ? PAPER : color}
-            size={eraser ? ERASER_SIZE : size}
+            size={size}
           />
           {s.phase === "choose" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-inset/95 p-6 text-center">
@@ -381,7 +395,7 @@ export function Draw({ view, send, nameOf }: GameProps<View>) {
             size={size}
             eraser={eraser}
             onColor={setColor}
-            onSize={setSize}
+            onSize={eraser ? setEraserSize : setPenSize}
             onEraser={setEraser}
             send={send}
           />
