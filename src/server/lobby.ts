@@ -10,6 +10,7 @@ export type RoomSummary = {
   game: GameSlug;
   hostId: string;
   playing: boolean;
+  locked: boolean;
   /** 접속 중인 참가자 ID */
   online: string[];
   total: number;
@@ -63,6 +64,7 @@ function snapshot(): Omit<LobbyView, "you"> {
       players: r.total,
       max: games.find((x) => x.slug === r.game)?.maxPlayers ?? 12,
       playing: r.playing,
+      locked: r.locked,
     })),
   };
 }

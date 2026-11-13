@@ -1,4 +1,4 @@
-import { randomInt } from "node:crypto";
+import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { getGame, type GameSlug } from "@/lib/games";
 import type { GameAction, RoomView } from "@/lib/types";
 import { GameError } from "./errors";
@@ -30,6 +30,8 @@ export type Room = {
   hostId: string;
   players: Player[];
   banned: Set<string>;
+  /** 비밀번호 방이면 소금과 해시. 비밀번호 자체는 보관하지 않습니다. */
+  lock: { salt: string; hash: Buffer } | null;
   // 게임별 상태. 각 게임 모듈만 내부 구조를 압니다.
   state: unknown;
   listeners: Map<symbol, Listener>;
@@ -50,6 +52,21 @@ type Store = { rooms: Map<string, Room>; sweeper?: ReturnType<typeof setInterval
 const g = globalThis as typeof globalThis & { __miniGamesStore?: Store };
 const store: Store = (g.__miniGamesStore ??= { rooms: new Map() });
 
+/** 비밀번호가 틀렸거나 빠졌을 때. 화면에서 비밀번호 입력을 띄우는 신호로 씁니다. */
+export class PasswordError extends GameError {}
+
+function hashPassword(salt: string, password: string): Buffer {
+  return createHash("sha256").update(`${salt}:${password}`).digest();
+}
+
+export function cleanPassword(raw: unknown): string | null {
+  if (raw === undefined || raw === null || raw === "") return null;
+  if (typeof raw !== "string" || raw.length > 20) {
+    throw new GameError("비밀번호는 20자 이하로 입력해 주세요.");
+  }
+  return raw;
+}
+
 function inLobby(room: Room): boolean {
   return (room.state as { phase?: string }).phase === "lobby";
 }
@@ -60,6 +77,7 @@ registerRoomSource(() =>
     game: room.game,
     hostId: room.hostId,
     playing: !inLobby(room),
+    locked: room.lock !== null,
     online: room.players.filter((p) => p.connections > 0).map((p) => p.id),
     total: room.players.length,
   })),
@@ -92,7 +110,7 @@ function newCode(): string {
   }
 }
 
-export function createRoom(game: GameSlug, user: User): Room {
+export function createRoom(game: GameSlug, user: User, password: string | null = null): Room {
   if (store.rooms.size >= MAX_ROOMS) {
     throw new GameError("지금은 방을 더 만들 수 없습니다. 잠시 뒤에 다시 시도해 주세요.");
   }
@@ -102,11 +120,17 @@ export function createRoom(game: GameSlug, user: User): Room {
     hostId: user.id,
     players: [{ id: user.id, name: user.name, connections: 0 }],
     banned: new Set(),
+    lock: null,
     state: gameModules[game].init(),
     listeners: new Map(),
     timer: null,
     lastActive: Date.now(),
   };
+  // 혼자 하는 게임은 어차피 다른 사람이 들어올 수 없어 잠그지 않습니다.
+  if (password && !getGame(game)?.solo) {
+    const salt = randomBytes(8).toString("hex");
+    room.lock = { salt, hash: hashPassword(salt, password) };
+  }
   store.rooms.set(room.code, room);
   touchLobby();
   return room;
@@ -121,10 +145,16 @@ export function findPlayer(room: Room, user: User | undefined): Player | undefin
 }
 
 /** 이미 참가 중이면 그 자리로 돌아갑니다. */
-export function joinRoom(room: Room, user: User): Player {
+export function joinRoom(room: Room, user: User, password: string | null = null): Player {
   const existing = findPlayer(room, user);
   if (existing) return existing;
   if (room.banned.has(user.id)) throw new GameError("방장이 내보낸 방에는 다시 들어갈 수 없습니다.");
+  if (room.lock) {
+    if (!password) throw new PasswordError("비밀번호가 필요한 방입니다.");
+    if (!timingSafeEqual(room.lock.hash, hashPassword(room.lock.salt, password))) {
+      throw new PasswordError("비밀번호가 맞지 않습니다.");
+    }
+  }
   const max = getGame(room.game)?.maxPlayers ?? 12;
   if (room.players.length >= max) throw new GameError(`방이 가득 찼습니다. (최대 ${max}명)`);
   const player: Player = { id: user.id, name: user.name, connections: 0 };

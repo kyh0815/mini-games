@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { GameIcon } from "@/components/arcade/game-icon";
 import { openNickname } from "@/components/arcade/nickname";
 import { Blink, Panel } from "@/components/arcade/panel";
 import { PixelAvatar } from "@/components/arcade/pixel-avatar";
-import { ArrowLeft, Check, Crown, InfoBox, LinkIcon } from "@/components/icons";
+import { ArrowLeft, Check, Crown, InfoBox, LinkIcon, Lock } from "@/components/icons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +28,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { audio } from "@/lib/audio";
 import { post } from "@/lib/client";
@@ -57,6 +58,7 @@ type Status =
   | { kind: "joined" }
   | { kind: "notFound" }
   | { kind: "left" }
+  | { kind: "password"; message: string; tried: boolean }
   | { kind: "refused"; message: string };
 
 function Notice({ title, children, action }: { title: string; children: string; action?: ReactNode }) {
@@ -76,6 +78,58 @@ function Notice({ title, children, action }: { title: string; children: string; 
   );
 }
 
+/** 비밀번호 방 앞에서 비밀번호를 묻습니다. */
+function PasswordGate({
+  message,
+  wrong,
+  onSubmit,
+}: {
+  message: string;
+  wrong: boolean;
+  onSubmit: (password: string) => Promise<void>;
+}) {
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!value) return;
+    setBusy(true);
+    await onSubmit(value);
+    setBusy(false);
+    setValue("");
+  };
+  return (
+    <Panel className="mx-auto mt-10 w-full max-w-md">
+      <form onSubmit={submit} className="flex flex-col items-center gap-5 px-6 py-10 text-center">
+        <Lock className="size-9 text-pop-yellow" />
+        <h1 className="font-pixel fs-2 text-foreground">비밀번호 방</h1>
+        <p role={wrong ? "alert" : undefined} className={cn("text-sm", wrong ? "text-pop-red" : "text-muted-foreground")}>
+          {wrong ? message : "방을 만든 사람에게 비밀번호를 물어보세요."}
+        </p>
+        <Input
+          type="password"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          aria-label="비밀번호"
+          placeholder="비밀번호"
+          maxLength={20}
+          autoComplete="off"
+          autoFocus
+          aria-invalid={wrong || undefined}
+        />
+        <div className="flex gap-3">
+          <Button asChild variant="outline">
+            <Link href="/">로비로</Link>
+          </Button>
+          <Button type="submit" disabled={busy || !value}>
+            입장
+          </Button>
+        </div>
+      </form>
+    </Panel>
+  );
+}
+
 export function RoomClient({ code }: { code: string }) {
   const router = useRouter();
   const lobby = useLobby();
@@ -87,20 +141,25 @@ export function RoomClient({ code }: { code: string }) {
   const [confirmLeave, setConfirmLeave] = useState(false);
   const prevView = useRef<RoomView | null>(null);
 
-  const join = useCallback(async () => {
-    try {
-      await post(`/api/rooms/${code}/join`);
-      setStatus({ kind: "joined" });
-    } catch (err) {
-      const e = err as Error & { status?: number };
-      setStatus(e.status === 404 ? { kind: "notFound" } : { kind: "refused", message: e.message });
-    }
-  }, [code]);
+  const join = useCallback(
+    async (password?: string) => {
+      try {
+        await post(`/api/rooms/${code}/join`, { password });
+        setStatus({ kind: "joined" });
+      } catch (err) {
+        const e = err as Error & { status?: number; needPassword?: boolean };
+        if (e.status === 404) setStatus({ kind: "notFound" });
+        else if (e.needPassword) setStatus({ kind: "password", message: e.message, tried: !!password });
+        else setStatus({ kind: "refused", message: e.message });
+      }
+    },
+    [code],
+  );
 
   // 닉네임이 있으면 바로 입장합니다. 이 화면으로 돌아올 때마다 다시 확인합니다.
   useEffect(() => {
     if (!lobby.ready || !youId) return;
-    const id = setTimeout(join, 0);
+    const id = setTimeout(() => join(), 0);
     return () => clearTimeout(id);
   }, [lobby.ready, youId, join]);
 
@@ -174,6 +233,9 @@ export function RoomClient({ code }: { code: string }) {
   if (status.kind === "refused") {
     return <Notice title="입장할 수 없습니다">{status.message}</Notice>;
   }
+  if (status.kind === "password") {
+    return <PasswordGate message={status.message} wrong={status.tried} onSubmit={join} />;
+  }
   if (status.kind === "left") {
     return (
       <Notice
@@ -182,7 +244,7 @@ export function RoomClient({ code }: { code: string }) {
           <Button
             onClick={() => {
               setStatus({ kind: "joining" });
-              join();
+              void join();
             }}
           >
             다시 입장
@@ -195,7 +257,7 @@ export function RoomClient({ code }: { code: string }) {
   }
   if (lobby.ready && !youId) {
     return (
-      <Notice title={`방 ${code}`} action={<Button onClick={openNickname}>닉네임 정하기</Button>}>
+      <Notice title="게임 방" action={<Button onClick={openNickname}>닉네임 정하기</Button>}>
         닉네임을 정하면 바로 입장합니다.
       </Notice>
     );
@@ -252,16 +314,10 @@ export function RoomClient({ code }: { code: string }) {
         <div className="flex items-center gap-2">
           {/* 혼자 하는 게임에는 초대할 방이 없습니다. */}
           {!solo && (
-            <>
-              <div className="flex h-10 items-center gap-2 border-2 border-ink bg-inset px-3">
-                <span className="font-pixel fs-1 text-muted-foreground">ROOM</span>
-                <span className="font-pixel fs-2 tracking-[0.15em] text-foreground">{view.code}</span>
-              </div>
-              <Button variant="secondary" onClick={copyLink}>
-                {copied ? <Check /> : <LinkIcon />}
-                초대 링크
-              </Button>
-            </>
+            <Button variant="secondary" onClick={copyLink}>
+              {copied ? <Check /> : <LinkIcon />}
+              초대 링크
+            </Button>
           )}
           <Dialog>
             <Tooltip>

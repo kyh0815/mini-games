@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbyView } from "@/lib/types";
 import { subscribeLobby } from "./lobby";
-import { createRoom, dispatch, joinRoom, subscribe } from "./rooms";
+import { GameError, PasswordError, cleanPassword, createRoom, dispatch, joinRoom, subscribe } from "./rooms";
 import { saveUser, sessionCookie } from "./session";
 
 function request(cookie?: string): Request {
@@ -75,6 +75,7 @@ describe("lobby", () => {
       host: "로비나",
       players: 1,
       playing: false,
+      locked: false,
     });
     expect(last().users.find((u) => u.id === b.user.id)?.room).toEqual({
       code: room.code,
@@ -91,5 +92,39 @@ describe("lobby", () => {
     vi.advanceTimersByTime(50);
     expect(last().users.map((u) => u.name)).not.toContain("로비나");
     offA();
+  });
+});
+
+describe("password rooms", () => {
+  it("lets people in only with the right password and marks the room as locked", () => {
+    const host = signUp("잠금가");
+    const guest = signUp("잠금나");
+    const room = createRoom("draw", host.user, "1234");
+    const hostPlayer = joinRoom(room, host.user);
+    subscribe(room, hostPlayer, { push: () => {}, send: () => {}, end: () => {} });
+
+    expect(() => joinRoom(room, guest.user)).toThrow(PasswordError);
+    expect(() => joinRoom(room, guest.user, "0000")).toThrow(PasswordError);
+    expect(room.players).toHaveLength(1);
+
+    const player = joinRoom(room, guest.user, "1234");
+    // 이미 들어온 사람은 새로고침해도 비밀번호를 다시 묻지 않습니다.
+    expect(joinRoom(room, guest.user)).toBe(player);
+
+    const seen: LobbyView[] = [];
+    const off = subscribeLobby(undefined, (payload) => seen.push(JSON.parse(payload)));
+    expect(seen.at(-1)!.rooms.find((r) => r.code === room.code)?.locked).toBe(true);
+    // 비밀번호는 어디에도 내려가지 않습니다.
+    expect(JSON.stringify(seen.at(-1))).not.toContain("1234");
+    off();
+  });
+
+  it("does not lock solo games and rejects overlong passwords", () => {
+    const u = signUp("잠금다");
+    expect(createRoom("reaction", u.user, "1234").lock).toBeNull();
+    expect(createRoom("draw", u.user).lock).toBeNull();
+    expect(cleanPassword("")).toBeNull();
+    expect(cleanPassword("1234")).toBe("1234");
+    expect(() => cleanPassword("x".repeat(21))).toThrow(GameError);
   });
 });

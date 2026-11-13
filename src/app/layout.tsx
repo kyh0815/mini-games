@@ -19,8 +19,8 @@ const galmuri = localFont({
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains" });
 
 export const metadata: Metadata = {
-  title: { default: "MINI ARCADE | 미니게임 오락실", template: "%s | MINI ARCADE" },
-  description: "팀원들과 함께 즐기는 실시간 미니게임 오락실. 방을 만들고 같이 놀아요.",
+  title: { default: "MINI GAME HEAVEN | 미니게임 천국", template: "%s | MINI GAME HEAVEN" },
+  description: "팀원들과 함께 즐기는 미니게임 천국. 방을 만들어 함께하거나, 혼자 기록에 도전하세요.",
 };
 
 export const viewport: Viewport = { themeColor: "#1b1c22", colorScheme: "dark" };

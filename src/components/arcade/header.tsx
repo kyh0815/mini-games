@@ -22,11 +22,14 @@ export function Header() {
             <rect width="8" height="8" className="fill-primary" />
             <path d="M3 1h2v2H3zM3.5 3h1v2h-1zM1 5h6v2H1z" className="fill-ink" />
           </svg>
-          <span className="font-pixel fs-2 text-foreground">MINI ARCADE</span>
+          <span className="flex flex-col leading-none">
+            <span className="font-pixel fs-15 text-foreground sm:fs-2">MINI GAME HEAVEN</span>
+            <span className="font-pixel hidden fs-1 text-muted-foreground sm:block">미니게임 천국</span>
+          </span>
         </Link>
         <div className="flex items-center gap-2">
           {lobby.ready && (
-            <Button variant="outline" onClick={openNickname} className="max-w-44 gap-2 px-2.5">
+            <Button variant="outline" onClick={openNickname} className="max-w-36 gap-2 px-2.5 sm:max-w-44">
               {lobby.you ? (
                 <PixelAvatar seed={lobby.you.id} className="size-6 border-0" />
               ) : (

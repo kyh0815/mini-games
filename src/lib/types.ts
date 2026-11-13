@@ -219,6 +219,8 @@ export type LobbyView = {
     players: number;
     max: number;
     playing: boolean;
+    /** 비밀번호가 걸린 방 */
+    locked: boolean;
   }[];
 };
 

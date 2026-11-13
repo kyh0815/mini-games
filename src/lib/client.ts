@@ -6,7 +6,11 @@ export async function post<T = Record<string, unknown>>(url: string, body: unkno
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(data.error ?? "요청에 실패했습니다.") as Error & { status: number };
+    const err = new Error(data.error ?? "요청에 실패했습니다.") as Error & {
+      status: number;
+      needPassword?: boolean;
+    };
+    err.needPassword = data.needPassword === true;
     err.status = res.status;
     throw err;
   }

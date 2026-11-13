@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Label11, Panel, Screen } from "@/components/arcade/panel";
-import { Trophy } from "@/components/icons";
+import { Crown, Trophy } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { getGame } from "@/lib/games";
 import { formatRecord, getBoard, type BoardRows } from "@/lib/records";
@@ -38,7 +38,11 @@ export function RecordList({ rows, boardKey, me }: { rows: BoardRows["rows"]; bo
           >
             {i + 1}
           </span>
-          <span className="min-w-0 flex-1 truncate font-medium">{row.name}</span>
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 font-medium">
+            <span className="truncate">{row.name}</span>
+            {/* 1등에게만 왕관을 씌웁니다 */}
+            {i === 0 && <Crown aria-label="1위" className="size-4 shrink-0 text-pop-yellow" />}
+          </span>
           <span className="font-pixel fs-15 tabular-nums">{formatRecord(board, row.value)}</span>
         </li>
       ))}

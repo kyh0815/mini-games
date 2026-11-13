@@ -1,6 +1,5 @@
 "use client";
 
-import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -10,7 +9,7 @@ import { Label11, Panel } from "@/components/arcade/panel";
 import { RecordList } from "@/components/games/solo";
 import { PixelAvatar } from "@/components/arcade/pixel-avatar";
 import { Rules } from "@/components/games/shared";
-import { ArrowRight, Users } from "@/components/icons";
+import { ArrowRight, Lock, Users } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +18,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { audio } from "@/lib/audio";
 import { post } from "@/lib/client";
@@ -66,7 +66,10 @@ function RoomList({ onBrowseGames }: { onBrowseGames: () => void }) {
             >
               <GameIcon game={room.game} />
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-semibold">{room.host}의 방</span>
+                <span className="flex items-center gap-1.5 truncate font-semibold">
+                  {room.locked && <Lock aria-label="비밀번호 방" className="size-4 shrink-0 text-pop-yellow" />}
+                  <span className="truncate">{room.host}의 방</span>
+                </span>
                 <span className="truncate text-sm text-muted-foreground">{game.title}</span>
               </span>
               <span
@@ -82,9 +85,6 @@ function RoomList({ onBrowseGames }: { onBrowseGames: () => void }) {
                 <Users className="size-4" />
                 {room.players}/{room.max}
               </span>
-              <span className="font-pixel hidden w-12 text-right fs-1 text-muted-foreground sm:block">
-                {room.code}
-              </span>
               <span className="text-sm font-semibold text-primary group-hover:underline">
                 {full ? "관전" : "입장"}
               </span>
@@ -96,51 +96,22 @@ function RoomList({ onBrowseGames }: { onBrowseGames: () => void }) {
   );
 }
 
-function JoinByCode({ onEnter }: { onEnter: (code: string) => void }) {
-  const [code, setCode] = useState("");
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (code.length === 4) onEnter(code);
-      }}
-      className="flex items-center gap-2"
-    >
-      <label htmlFor="room-code" className="text-sm text-muted-foreground">
-        코드로 입장
-      </label>
-      <InputOTP
-        id="room-code"
-        maxLength={4}
-        value={code}
-        onChange={(value) => setCode(value.toUpperCase())}
-        onComplete={(value: string) => onEnter(value.toUpperCase())}
-        pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
-        inputMode="text"
-        autoComplete="off"
-        aria-label="방 코드 4자리"
-      >
-        <InputOTPGroup>
-          {[0, 1, 2, 3].map((i) => (
-            <InputOTPSlot key={i} index={i} className="size-9 fs-15" />
-          ))}
-        </InputOTPGroup>
-      </InputOTP>
-    </form>
-  );
-}
-
 function GameGrid() {
   const router = useRouter();
   const lobby = useLobby();
   const [selected, setSelected] = useState<Game | null>(null);
   const [pending, setPending] = useState(false);
+  const [password, setPassword] = useState("");
 
   const create = async (game: Game) => {
     setPending(true);
     try {
       if (!lobby.you && !(await askNickname())) return;
-      const { code } = await post<{ code: string }>("/api/rooms", { game: game.slug });
+      const { code } = await post<{ code: string }>("/api/rooms", {
+        game: game.slug,
+        password: game.solo ? undefined : password,
+      });
+      setPassword("");
       audio.play("coin");
       setSelected(null);
       router.push(`/rooms/${code}`);
@@ -153,8 +124,8 @@ function GameGrid() {
   };
 
   const groups = [
-    { title: "함께 하는 게임", hint: "방을 만들어 팀원과 같이 합니다", list: games.filter((x) => !x.solo) },
-    { title: "혼자 도전하는 게임", hint: "기록이 명예의 전당에 남습니다", list: games.filter((x) => x.solo) },
+    { title: "멀티 플레이어", hint: "방을 만들어 함께해요!", list: games.filter((x) => !x.solo) },
+    { title: "1인 플레이어", hint: "명예의 전당에 이름을 올려요!", list: games.filter((x) => x.solo) },
   ];
 
   return (
@@ -208,7 +179,14 @@ function GameGrid() {
         ))}
       </div>
 
-      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+      <Dialog
+        open={!!selected}
+        onOpenChange={(open) => {
+          if (open) return;
+          setSelected(null);
+          setPassword("");
+        }}
+      >
         {selected && (
           <DialogContent data-game={selected.slug} className="sm:max-w-lg">
             <DialogHeader>
@@ -221,6 +199,20 @@ function GameGrid() {
               </DialogDescription>
             </DialogHeader>
             <Rules rules={selected.rules} />
+            {!selected.solo && (
+              <div className="flex flex-col gap-2 border-t-2 border-border pt-4">
+                <Label htmlFor="room-password">비밀번호 (선택)</Label>
+                <Input
+                  id="room-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="비워 두면 누구나 들어올 수 있습니다"
+                  maxLength={20}
+                  autoComplete="off"
+                />
+              </div>
+            )}
             <Button size="lg" disabled={pending} onClick={() => create(selected)}>
               {pending ? "여는 중…" : selected.solo ? "시작하기" : "방 만들기"}
             </Button>
@@ -272,7 +264,6 @@ type Tab = "rooms" | "games" | "records";
 /** 홈의 본문. 열린 방과 게임 목록을 탭으로 나눕니다. */
 export function LobbyTabs() {
   const lobby = useLobby();
-  const enter = useEnterRoom();
   const [tab, setTab] = useState<Tab | null>(null);
   // 처음 들어왔을 때만 자동으로 고릅니다: 열린 방이 있으면 방 목록, 없으면 게임 목록.
   // 그 뒤로는 방이 생기거나 없어져도 보고 있던 탭을 바꾸지 않습니다.
@@ -281,31 +272,26 @@ export function LobbyTabs() {
 
   return (
     <Tabs value={current} onValueChange={(value) => setTab(value as Tab)}>
-      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b-2 border-ink">
-        <TabsList className="border-b-0">
-          <TabsTrigger value="rooms">
-            열린 방
-            <span
-              className={cn(
-                "font-pixel flex h-5 min-w-5 items-center justify-center px-1 fs-1 tabular-nums",
-                lobby.rooms.length > 0 ? "bg-primary text-ink" : "bg-muted text-muted-foreground",
-              )}
-            >
-              {lobby.rooms.length}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="games">
-            게임 목록
-            <span className="font-pixel flex h-5 min-w-5 items-center justify-center bg-muted px-1 fs-1 text-muted-foreground tabular-nums">
-              {games.length}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="records">명예의 전당</TabsTrigger>
-        </TabsList>
-        <div className="pb-2">
-          <JoinByCode onEnter={enter} />
-        </div>
-      </div>
+      <TabsList>
+        <TabsTrigger value="rooms">
+          열린 방
+          <span
+            className={cn(
+            "font-pixel flex h-5 min-w-5 items-center justify-center px-1 fs-1 tabular-nums",
+            lobby.rooms.length > 0 ? "bg-primary text-ink" : "bg-muted text-muted-foreground",
+            )}
+          >
+            {lobby.rooms.length}
+          </span>
+        </TabsTrigger>
+        <TabsTrigger value="games">
+          게임 목록
+          <span className="font-pixel flex h-5 min-w-5 items-center justify-center bg-muted px-1 fs-1 text-muted-foreground tabular-nums">
+            {games.length}
+          </span>
+        </TabsTrigger>
+        <TabsTrigger value="records">명예의 전당</TabsTrigger>
+      </TabsList>
       <TabsContent value="rooms">
         <RoomList onBrowseGames={() => setTab("games")} />
       </TabsContent>
