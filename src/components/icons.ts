@@ -51,6 +51,7 @@ export { Bookmark } from "pixelarticons/react/Bookmark.js";
 export { Home } from "pixelarticons/react/Home.js";
 export { Hourglass } from "pixelarticons/react/Hourglass.js";
 export { Human } from "pixelarticons/react/Human.js";
+export { Megaphone } from "pixelarticons/react/Megaphone.js";
 export { Lock } from "pixelarticons/react/Lock.js";
 export { Script } from "pixelarticons/react/Script.js";
 export { Search } from "pixelarticons/react/Search.js";

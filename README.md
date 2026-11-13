@@ -40,6 +40,20 @@ npm test           # 게임 규칙 단위 테스트
 - 서버를 재시작하면 진행 중이던 방과 닉네임이 모두 사라집니다.
 - 프록시 뒤에 둘 경우 `/api/lobby/events`, `/api/rooms/*/events` (Server-Sent Events) 응답을 버퍼링하지 않도록 설정해야 합니다.
 
+### 공지 띄우기
+
+서버를 내리기 전처럼 모두에게 알릴 일이 있으면, 접속 중인 모든 화면(게임 중 포함)에 공지를 실시간으로 띄울 수 있습니다. `ADMIN_TOKEN` 환경 변수를 정해 두고 서버를 띄운 경우에만 동작합니다.
+
+```bash
+# 띄우기 (80자까지)
+curl -X POST http://localhost:3000/api/admin/notice \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"text":"곧 서버 점검 예정입니다."}'
+
+# 내리기
+curl -X DELETE http://localhost:3000/api/admin/notice -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
 명예의 전당 기록만은 파일에 저장되어 재시작해도 남습니다.
 
 - 기본 위치는 실행 폴더의 `.data/records.json` 이고, `DATA_DIR` 환경 변수로 바꿀 수 있습니다.
@@ -53,7 +67,7 @@ npm test           # 게임 규칙 단위 테스트
 - `src/lib/audio.ts` — 배경 음악과 효과음. 음원 파일 없이 Web Audio로 합성합니다.
 - `src/lib/lobby-store.ts` — 로비(방 목록·접속자) 실시간 연결
 - `src/server/session.ts` — 닉네임과 세션
-- `src/server/lobby.ts` — 방 목록과 접속자 목록 전파
+- `src/server/lobby.ts` — 방 목록과 접속자 목록, 공지 전파
 - `src/server/records.ts` — 명예의 전당 (파일 저장)
 - `src/server/rooms.ts` — 방 저장소, 입장/퇴장, 타이머, 상태 전파
 - `src/server/games/` — 게임별 규칙. `view()`가 플레이어마다 보여도 되는 정보만 골라 보냅니다.

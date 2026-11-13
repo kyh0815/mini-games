@@ -5,6 +5,7 @@ import { User } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { useLobby } from "@/lib/lobby-store";
 import { openNickname } from "./nickname";
+import { NoticeBar } from "./notice";
 import { PixelAvatar } from "./pixel-avatar";
 import { SoundControl } from "./sound";
 
@@ -41,6 +42,7 @@ export function Header() {
           <SoundControl />
         </div>
       </div>
+      <NoticeBar />
     </header>
   );
 }

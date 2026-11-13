@@ -9,7 +9,7 @@ export type LobbyState = LobbyView & {
   connected: boolean;
 };
 
-const EMPTY: LobbyState = { ready: false, connected: false, you: null, users: [], rooms: [] };
+const EMPTY: LobbyState = { ready: false, connected: false, you: null, users: [], rooms: [], notice: null };
 
 let state: LobbyState = EMPTY;
 let source: EventSource | null = null;

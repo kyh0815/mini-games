@@ -1,5 +1,6 @@
 import { games, type GameSlug } from "@/lib/games";
 import type { LobbyView } from "@/lib/types";
+import { GameError } from "./errors";
 import { allUsers, type User } from "./session";
 
 type Listener = { user: User | undefined; push: (payload: string) => void };
@@ -21,6 +22,7 @@ type Store = {
   rooms: () => RoomSummary[];
   timer: ReturnType<typeof setTimeout> | null;
   last: string;
+  notice?: LobbyView["notice"];
 };
 const g = globalThis as typeof globalThis & { __miniGamesLobby?: Store };
 const store: Store = (g.__miniGamesLobby ??= {
@@ -56,6 +58,7 @@ function snapshot(): Omit<LobbyView, "you"> {
   }
   users.sort((a, b) => a.name.localeCompare(b.name, "ko"));
   return {
+    notice: store.notice ?? null,
     users,
     rooms: rooms.map((r) => ({
       code: r.code,
@@ -72,6 +75,23 @@ function snapshot(): Omit<LobbyView, "you"> {
 function payloadFor(listener: Listener, shared: Omit<LobbyView, "you">): string {
   const you = listener.user ? { id: listener.user.id, name: listener.user.name } : null;
   return JSON.stringify({ you, ...shared } satisfies LobbyView);
+}
+
+const NOTICE_MAX = 80;
+
+/**
+ * 모든 접속자의 화면에 공지를 띄우거나(빈 값이면) 내립니다.
+ * 로비 연결은 게임 방 안에서도 유지되므로 게임 중인 사람에게도 바로 보입니다.
+ */
+export function setNotice(input: unknown): LobbyView["notice"] {
+  const text =
+    typeof input === "string"
+      ? input.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim()
+      : "";
+  if (text.length > NOTICE_MAX) throw new GameError(`공지는 ${NOTICE_MAX}자까지 쓸 수 있습니다.`);
+  store.notice = text ? { text, at: Date.now() } : null;
+  touchLobby();
+  return store.notice;
 }
 
 /** 방이나 접속자에 변화가 있을 때 부릅니다. 잦은 변화는 한 번으로 묶어 보냅니다. */

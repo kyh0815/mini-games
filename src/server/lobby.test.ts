@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbyView } from "@/lib/types";
-import { subscribeLobby } from "./lobby";
+import { setNotice, subscribeLobby } from "./lobby";
 import { GameError, PasswordError, cleanPassword, createRoom, dispatch, joinRoom, subscribe } from "./rooms";
 import { saveUser, sessionCookie } from "./session";
 
@@ -126,5 +126,28 @@ describe("password rooms", () => {
     expect(cleanPassword("")).toBeNull();
     expect(cleanPassword("1234")).toBe("1234");
     expect(() => cleanPassword("x".repeat(21))).toThrow(GameError);
+  });
+});
+
+describe("notice", () => {
+  it("reaches everyone connected, including people who arrive later, until it is cleared", () => {
+    const seen: LobbyView[] = [];
+    const off = subscribeLobby(undefined, (payload) => seen.push(JSON.parse(payload)));
+    expect(seen.at(-1)!.notice).toBeNull();
+
+    setNotice("  곧 서버\n점검 예정입니다.  ");
+    vi.advanceTimersByTime(50);
+    expect(seen.at(-1)!.notice?.text).toBe("곧 서버 점검 예정입니다.");
+
+    const late: LobbyView[] = [];
+    const offLate = subscribeLobby(undefined, (payload) => late.push(JSON.parse(payload)));
+    expect(late[0].notice?.text).toBe("곧 서버 점검 예정입니다.");
+
+    expect(() => setNotice("가".repeat(81))).toThrow(GameError);
+    setNotice("");
+    vi.advanceTimersByTime(50);
+    expect(seen.at(-1)!.notice).toBeNull();
+    off();
+    offLate();
   });
 });

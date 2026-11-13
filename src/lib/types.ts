@@ -222,6 +222,8 @@ export type LobbyView = {
     /** 비밀번호가 걸린 방 */
     locked: boolean;
   }[];
+  /** 운영자가 모든 화면에 띄우는 공지. at은 올린 시각(ms)입니다. */
+  notice: { text: string; at: number } | null;
 };
 
 type Base = {
