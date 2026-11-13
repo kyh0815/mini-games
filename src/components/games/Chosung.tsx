@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Panel, Screen } from "@/components/arcade/panel";
+import { Label11, Panel, Screen } from "@/components/arcade/panel";
 import { LedTimer } from "@/components/arcade/timer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { GameTag, Lobby, Option, RankRow, Result, type GameProps } from "./share
 
 type View = Extract<RoomView, { game: "chosung" }>;
 
-export function Chosung({ view, now, send, nameOf }: GameProps<View>) {
+export function Chosung({ view, send, nameOf }: GameProps<View>) {
   const s = view.state;
   const [category, setCategory] = useState("all");
   const [rounds, setRounds] = useState("10");
@@ -51,7 +51,7 @@ export function Chosung({ view, now, send, nameOf }: GameProps<View>) {
           >
             {["5", "10", "15"].map((n) => (
               <ToggleGroupItem key={n} value={n}>
-                {n}
+                {n}문제
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
@@ -68,9 +68,7 @@ export function Chosung({ view, now, send, nameOf }: GameProps<View>) {
     <ol className="flex flex-col gap-2">
       {ranking.map((p, i) => (
         <RankRow key={p.id} rank={i + 1} id={p.id} name={p.name} you={p.id === view.you}>
-          <span className="font-pixel fs-15 text-neon-yellow tabular-nums">
-            {String(p.score).padStart(2, "0")}
-          </span>
+          <span className="font-pixel fs-15 text-foreground tabular-nums">{p.score}</span>
         </RankRow>
       ))}
     </ol>
@@ -83,8 +81,8 @@ export function Chosung({ view, now, send, nameOf }: GameProps<View>) {
       <Result
         view={view}
         send={send}
-        tone={hasWinner ? "win" : "neutral"}
-        title={hasWinner ? `${top.name} WIN!` : "DRAW"}
+        tone={!hasWinner ? "neutral" : top.id === view.you ? "win" : "lose"}
+        title={hasWinner ? `${top.name} 우승` : "무승부"}
         subtitle={hasWinner ? `${top.score}문제를 맞혔습니다.` : "아무도 점수를 얻지 못했습니다."}
       >
         {scores}
@@ -101,36 +99,36 @@ export function Chosung({ view, now, send, nameOf }: GameProps<View>) {
   const asking = s.phase === "question";
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
       <Screen>
         <div className="flex flex-col gap-6 p-5 sm:p-7">
           <div className="flex items-center justify-between">
-            <span className="font-pixel fs-15 text-muted-foreground">
-              ROUND <span className="text-foreground tabular-nums">{s.round}</span>/{s.totalRounds}
-            </span>
+            <Label11 className="tabular-nums">
+              ROUND {s.round}/{s.totalRounds}
+            </Label11>
             <GameTag>{s.category}</GameTag>
           </div>
 
-          <div className="flex min-h-40 flex-col items-center justify-center gap-4">
+          <div className="flex min-h-36 flex-col items-center justify-center gap-3">
             <p
               key={`${s.round}-${s.phase}`}
               className={cn(
-                "font-pixel animate-pop text-center fs-4 tracking-[0.25em] neon-text sm:fs-6",
-                asking ? "text-game" : s.winnerId ? "text-neon-green" : "text-neon-red",
+                "font-pixel animate-pop text-center fs-4 tracking-[0.25em] sm:fs-6",
+                asking ? "text-foreground" : s.winnerId ? "text-pop-green" : "text-muted-foreground",
               )}
             >
               {s.answer ?? s.chosung}
             </p>
-            <p className="font-pixel h-6 fs-15 text-neon-yellow">
+            <p className="h-5 text-sm text-muted-foreground">
               {asking
-                ? s.hint && `HINT: '${s.hint}'(으)로 시작`
+                ? s.hint && `힌트: '${s.hint}'(으)로 시작합니다`
                 : s.winnerId
-                  ? `${nameOf(s.winnerId)} 정답!`
-                  : "TIME UP"}
+                  ? `${nameOf(s.winnerId)} 님 정답`
+                  : "아무도 맞히지 못했습니다"}
             </p>
           </div>
 
-          <LedTimer now={now} deadline={s.deadline} totalMs={asking ? 20_000 : 3_500} tick={asking} />
+          <LedTimer deadline={s.deadline} totalMs={asking ? 20_000 : 3_500} tick={asking} />
 
           <form onSubmit={submit} className="flex gap-3">
             <Input
@@ -148,20 +146,20 @@ export function Chosung({ view, now, send, nameOf }: GameProps<View>) {
             </Button>
           </form>
 
-          <ul className="flex min-h-8 flex-wrap gap-2" aria-label="오답">
+          <ul className="flex min-h-7 flex-wrap gap-2" aria-label="오답">
             {asking &&
               s.guesses.map((g, i) => (
                 <li
                   key={`${g.playerId}-${g.text}-${i}`}
-                  className="animate-rise border-2 border-border bg-ink/60 px-2 py-0.5 text-sm text-muted-foreground"
+                  className="animate-rise border-2 border-border px-2 text-sm text-muted-foreground"
                 >
-                  {nameOf(g.playerId)} <span className="text-neon-red line-through">{g.text}</span>
+                  {nameOf(g.playerId)} <span className="line-through">{g.text}</span>
                 </li>
               ))}
           </ul>
         </div>
       </Screen>
-      <Panel label="SCORE" className="self-start">
+      <Panel label="SCORE">
         <div className="p-3">{scores}</div>
       </Panel>
     </div>

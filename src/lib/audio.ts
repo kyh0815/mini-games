@@ -21,7 +21,7 @@ export type Sfx =
 export type Mood = "lobby" | "play";
 
 const STORAGE_KEY = "mg:sound";
-const DEFAULTS: SoundSettings = { music: true, sfx: true, volume: 0.6 };
+const DEFAULTS: SoundSettings = { music: true, sfx: true, volume: 0.4 };
 
 const SEMITONE: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
@@ -113,8 +113,25 @@ class ArcadeAudio {
 
   // ----- 재생 제어 -----
 
-  /** 브라우저 정책상 첫 클릭/키 입력 뒤에만 소리를 낼 수 있습니다. */
+  private unlockQueued = false;
+
+  /**
+   * 브라우저 정책상 첫 클릭/키 입력 뒤에만 소리를 낼 수 있습니다.
+   * 오디오 장치를 여는 데 0.1초 넘게 걸릴 수 있어, 그 클릭의 처리를 막지 않도록 잠시 뒤에 엽니다.
+   */
   unlock(): void {
+    if (typeof window === "undefined" || this.ctx || this.unlockQueued) {
+      if (this.ctx?.state === "suspended") void this.ctx.resume();
+      return;
+    }
+    this.unlockQueued = true;
+    setTimeout(() => {
+      this.unlockQueued = false;
+      this.open();
+    }, 250);
+  }
+
+  private open(): void {
     if (typeof window === "undefined") return;
     if (!this.ctx) {
       const Ctor =

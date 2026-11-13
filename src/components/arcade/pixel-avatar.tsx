@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 
 const COLORS = [
-  "var(--neon-pink)",
-  "var(--neon-cyan)",
-  "var(--neon-yellow)",
-  "var(--neon-green)",
-  "oklch(0.75 0.19 300)",
-  "oklch(0.8 0.17 55)",
+  "var(--pop-pink)",
+  "var(--pop-blue)",
+  "var(--pop-yellow)",
+  "var(--pop-green)",
+  "var(--pop-violet)",
+  "var(--pop-red)",
 ];
 
 function hash(text: string): number {

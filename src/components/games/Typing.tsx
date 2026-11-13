@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Blink, Panel, Screen } from "@/components/arcade/panel";
+import { Label11, Panel, Screen } from "@/components/arcade/panel";
 import { PixelAvatar } from "@/components/arcade/pixel-avatar";
-import { LedTimer } from "@/components/arcade/timer";
+import { Countdown, LedTimer } from "@/components/arcade/timer";
 import { Flag } from "@/components/icons";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { audio } from "@/lib/audio";
+import { useNow } from "@/lib/clock";
 import { strokes } from "@/lib/hangul";
 import type { RoomView } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -23,8 +24,9 @@ function correctPrefix(typed: string, target: string): number {
   return i;
 }
 
-function Race({ view, now, send, nameOf }: GameProps<View>) {
+function Race({ view, send, nameOf }: GameProps<View>) {
   const s = view.state;
+  const now = useNow();
   const [typed, setTyped] = useState("");
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -32,7 +34,6 @@ function Race({ view, now, send, nameOf }: GameProps<View>) {
   const me = s.progress[view.you];
   const finished = me?.finishedMs != null;
   const correct = correctPrefix(typed, s.text);
-  const countdown = Math.max(1, Math.ceil((s.startAt - now) / 1000));
 
   // 진행도는 글자마다 보내지 않고 일정 간격으로 묶어서 보냅니다.
   const latest = useRef({ correct, sent: 0 });
@@ -47,7 +48,7 @@ function Race({ view, now, send, nameOf }: GameProps<View>) {
         l.sent = l.correct;
         send({ type: "progress", chars: l.correct });
       }
-    }, 300);
+    }, 250);
     return () => clearInterval(id);
   }, [started, finished, me, send]);
 
@@ -57,9 +58,6 @@ function Race({ view, now, send, nameOf }: GameProps<View>) {
       inputRef.current?.focus();
     }
   }, [started]);
-  useEffect(() => {
-    if (!started) audio.play("tick");
-  }, [started, countdown]);
 
   const onChange = (value: string) => {
     if (!started || finished) return;
@@ -78,19 +76,16 @@ function Race({ view, now, send, nameOf }: GameProps<View>) {
     <div className="flex flex-col gap-5">
       <Screen>
         {!started ? (
-          <div className="flex min-h-72 flex-col items-center justify-center gap-4 p-6">
-            <Blink className="fs-15 text-muted-foreground">GET READY</Blink>
-            <p key={countdown} className="font-pixel animate-pop fs-6 text-game neon-text tabular-nums">
-              {countdown}
-            </p>
+          <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-6">
+            <Label11>GET READY</Label11>
+            <Countdown until={s.startAt} />
             <p className="text-sm text-muted-foreground">키보드에 손을 올리세요.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-5 p-5 sm:p-7">
-            <div className="flex items-center justify-between gap-4">
-              <span className="font-pixel fs-15 text-muted-foreground">
-                SPEED <span className="text-neon-yellow tabular-nums">{String(speed).padStart(3, "0")}</span>
-                <span className="ml-1 fs-1">타/분</span>
+            <div className="flex items-end justify-between gap-4">
+              <span className="flex items-baseline gap-1.5 text-sm text-muted-foreground">
+                <span className="font-pixel fs-2 text-foreground tabular-nums">{speed}</span>타/분
               </span>
               <span className="font-pixel fs-15 text-muted-foreground tabular-nums">
                 {Math.round((correct / total) * 100)}%
@@ -100,10 +95,8 @@ function Race({ view, now, send, nameOf }: GameProps<View>) {
             {/* 문장 자체가 입력창입니다. 보이지 않는 textarea가 위에 덮여 키 입력을 받습니다. */}
             <div
               className={cn(
-                "relative border-2 bg-ink/60 p-4 transition-[border-color,box-shadow] sm:p-5",
-                focused && !finished
-                  ? "border-game shadow-[0_0_18px_color-mix(in_oklch,var(--game)_35%,transparent)]"
-                  : "border-border",
+                "relative border-2 bg-card p-4 transition-colors sm:p-5",
+                focused && !finished ? "border-foreground/70" : "border-border",
               )}
             >
               <p aria-hidden className="text-xl leading-10 font-medium break-all sm:text-2xl sm:leading-[2.75rem]">
@@ -123,14 +116,14 @@ function Race({ view, now, send, nameOf }: GameProps<View>) {
                       key={i}
                       className={cn(
                         "relative",
-                        state === "ok" && "text-neon-green",
-                        state === "bad" && "bg-neon-red/30 text-neon-red",
-                        state === "composing" && "bg-game/25 text-foreground",
-                        state === "todo" && "text-muted-foreground/60",
+                        state === "ok" && "text-pop-green",
+                        state === "bad" && "bg-pop-red/25 text-pop-red",
+                        state === "composing" && "bg-muted text-foreground",
+                        state === "todo" && "text-muted-foreground/70",
                       )}
                     >
                       {caret && (
-                        <span className="absolute top-[0.15em] -left-px h-[1.2em] w-0.5 animate-blink bg-game" />
+                        <span className="absolute top-[0.15em] -left-px h-[1.2em] w-0.5 animate-blink bg-foreground" />
                       )}
                       {ch === " " ? " " : ch}
                     </span>
@@ -156,15 +149,15 @@ function Race({ view, now, send, nameOf }: GameProps<View>) {
                 />
               )}
               {me && !focused && !finished && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-ink/80">
-                  <Blink className="fs-15 text-game">CLICK TO TYPE</Blink>
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-card/90">
+                  <span className="text-sm font-semibold">여기를 눌러 입력을 시작하세요</span>
                 </div>
               )}
             </div>
 
             {finished ? (
-              <p className="font-pixel text-center fs-15 text-neon-green neon-text">
-                FINISH! 다른 사람을 기다리는 중…
+              <p className="text-center text-sm font-semibold text-pop-green">
+                완주! 다른 사람을 기다리는 중…
               </p>
             ) : !me ? (
               <p className="text-center text-sm text-muted-foreground">
@@ -175,7 +168,7 @@ function Race({ view, now, send, nameOf }: GameProps<View>) {
                 빨간 글자가 보이면 지우고 다시 입력하세요.
               </p>
             )}
-            <LedTimer now={now} deadline={s.deadline} totalMs={RACE_LIMIT_MS} />
+            <LedTimer deadline={s.deadline} totalMs={RACE_LIMIT_MS} />
           </div>
         )}
       </Screen>
@@ -189,11 +182,11 @@ function Race({ view, now, send, nameOf }: GameProps<View>) {
               <li key={id} className="flex items-center gap-3">
                 <span className="w-24 truncate text-sm font-medium sm:w-32">{nameOf(id)}</span>
                 {/* 트랙: 캐릭터가 결승선까지 달립니다 */}
-                <div className="relative h-9 flex-1 border-2 border-ink bg-ink">
+                <div className="relative h-8 flex-1 bg-inset">
                   <div
                     className={cn(
                       "absolute inset-y-0 left-0 transition-[width] duration-300",
-                      p.finishedMs != null ? "bg-neon-green/30" : "bg-game/20",
+                      p.finishedMs != null ? "bg-pop-green/25" : "bg-muted",
                     )}
                     style={{ width: `${ratio * 100}%` }}
                   />
@@ -205,7 +198,7 @@ function Race({ view, now, send, nameOf }: GameProps<View>) {
                   </div>
                 </div>
                 <Flag
-                  className={cn("size-5", p.finishedMs != null ? "text-neon-green" : "text-muted-foreground")}
+                  className={cn("size-5", p.finishedMs != null ? "text-pop-green" : "text-muted-foreground")}
                 />
               </li>
             );
@@ -260,7 +253,7 @@ export function Typing(props: GameProps<View>) {
       view={view}
       send={send}
       tone={!anyFinished || !iPlayed ? "neutral" : winner === view.you ? "win" : "lose"}
-      title={anyFinished ? `${nameOf(winner)} WIN!` : "TIME UP"}
+      title={anyFinished ? `${nameOf(winner)} 우승` : "시간 종료"}
       subtitle={anyFinished ? undefined : "아무도 완주하지 못했습니다."}
     >
       <div className="flex flex-col gap-4">
@@ -274,7 +267,7 @@ export function Typing(props: GameProps<View>) {
                     <span className="text-sm text-muted-foreground tabular-nums">
                       {(p.finishedMs / 1000).toFixed(1)}초
                     </span>
-                    <span className="font-pixel w-20 text-right fs-15 text-neon-yellow tabular-nums">
+                    <span className="font-pixel w-20 text-right fs-15 text-foreground tabular-nums">
                       {Math.round(s.strokes / (p.finishedMs / 60_000))}타
                     </span>
                   </>
@@ -287,7 +280,7 @@ export function Typing(props: GameProps<View>) {
             );
           })}
         </ol>
-        <p className="border-l-2 border-game pl-3 text-sm text-muted-foreground">{s.text}</p>
+        <p className="border-l-2 border-border pl-3 text-sm text-muted-foreground">{s.text}</p>
       </div>
     </Result>
   );

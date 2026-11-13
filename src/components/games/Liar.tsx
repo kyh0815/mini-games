@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Blink, Panel, Screen } from "@/components/arcade/panel";
+import { Panel, Screen } from "@/components/arcade/panel";
 import { PixelAvatar } from "@/components/arcade/pixel-avatar";
 import { LedTimer } from "@/components/arcade/timer";
 import { Check, Eye, EyeOff } from "@/components/icons";
@@ -14,7 +14,7 @@ import { GameTag, Lobby, Option, Result, type GameProps } from "./shared";
 
 type View = Extract<RoomView, { game: "liar" }>;
 
-export function Liar({ view, now, send, nameOf }: GameProps<View>) {
+export function Liar({ view, send, nameOf }: GameProps<View>) {
   const s = view.state;
   const isHost = view.hostId === view.you;
   const [category, setCategory] = useState("random");
@@ -53,14 +53,14 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
 
   const head = (title: string) => (
     <div className="flex items-center justify-between gap-3">
-      <h2 className="font-pixel fs-15 text-foreground">{title}</h2>
-      <GameTag>주제: {s.category}</GameTag>
+      <h2 className="text-base font-semibold">{title}</h2>
+      <GameTag>주제 · {s.category}</GameTag>
     </div>
   );
 
   if (s.phase === "discuss") {
     return (
-      <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <Screen>
           <div className="flex flex-col gap-6 p-5 sm:p-7">
             {head("설명 시간")}
@@ -72,26 +72,22 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
                 aria-pressed={shown}
                 className={cn(
                   "group flex min-h-44 w-full flex-col items-center justify-center gap-3 border-2 border-dashed p-5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                  shown ? "border-game bg-ink/60" : "border-border hover:border-game",
+                  shown ? "border-foreground/70 bg-card" : "border-border hover:border-foreground/60",
                 )}
               >
                 {shown ? (
                   <>
                     {s.youAreLiar ? (
                       <>
-                        <span className="font-pixel animate-pop fs-3 text-neon-red neon-text">
-                          당신은 라이어
-                        </span>
+                        <span className="font-pixel animate-pop fs-3 text-pop-red">당신은 라이어</span>
                         <span className="text-sm text-muted-foreground">
                           제시어를 아는 척 둘러대세요.
                         </span>
                       </>
                     ) : (
                       <>
-                        <span className="font-pixel fs-1 text-muted-foreground">제시어</span>
-                        <span className="font-pixel animate-pop fs-4 text-game neon-text">
-                          {s.word}
-                        </span>
+                        <span className="text-sm text-muted-foreground">제시어</span>
+                        <span className="font-pixel animate-pop fs-4 text-foreground">{s.word}</span>
                       </>
                     )}
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -100,8 +96,8 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
                   </>
                 ) : (
                   <>
-                    <Eye className="size-10 text-game transition-transform group-hover:scale-110" />
-                    <Blink className="fs-15 text-game">PRESS TO REVEAL</Blink>
+                    <Eye className="size-9 text-muted-foreground transition-colors group-hover:text-foreground" />
+                    <span className="font-semibold">눌러서 내 카드 확인</span>
                     <span className="text-sm text-muted-foreground">
                       주변에 화면이 보이지 않는지 확인하고 누르세요.
                     </span>
@@ -109,7 +105,7 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
                 )}
               </button>
             ) : (
-              <p className="border-2 border-border bg-ink/60 p-5 text-center text-sm text-muted-foreground">
+              <p className="border-2 border-border p-5 text-center text-sm text-muted-foreground">
                 게임 도중에 들어와 이번 판은 관전합니다.
               </p>
             )}
@@ -124,11 +120,11 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
             )}
           </div>
         </Screen>
-        <Panel label="설명 순서" className="self-start">
+        <Panel label="ORDER">
           <ol className="flex flex-col gap-2 p-3">
             {s.order.map((id, i) => (
-              <li key={id} className="flex items-center gap-3 border-2 border-border bg-ink/50 px-3 py-2">
-                <span className="font-pixel w-5 fs-15 text-game">{i + 1}</span>
+              <li key={id} className="flex h-11 items-center gap-3 border-2 border-border bg-inset px-3">
+                <span className="font-pixel w-4 fs-1 text-muted-foreground">{i + 1}</span>
                 <PixelAvatar seed={id} className="size-7" />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{nameOf(id)}</span>
               </li>
@@ -143,8 +139,8 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
     return (
       <Screen className="mx-auto w-full max-w-2xl">
         <div className="flex flex-col gap-6 p-5 sm:p-7">
-          {head("라이어는 누구?")}
-          <ul className="grid gap-3 sm:grid-cols-2">
+          {head("라이어는 누구일까요?")}
+          <ul className="grid gap-2.5 sm:grid-cols-2">
             {s.participants.map((id) => {
               const mine = s.yourVote === id;
               const self = id === view.you;
@@ -156,22 +152,22 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
                     aria-pressed={mine}
                     onClick={() => send({ type: "vote", target: id })}
                     className={cn(
-                      "flex h-16 w-full items-center gap-3 border-2 px-3 text-left outline-none transition-[border-color,transform,box-shadow] focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-45",
+                      "flex h-14 w-full items-center gap-3 border-2 px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-45",
                       mine
-                        ? "border-game bg-game/15 shadow-[0_0_18px_color-mix(in_oklch,var(--game)_45%,transparent)]"
-                        : "border-border bg-ink/50 enabled:hover:-translate-y-0.5 enabled:hover:border-game",
+                        ? "border-game bg-accent"
+                        : "border-border bg-card enabled:hover:border-foreground/60",
                     )}
                   >
-                    <PixelAvatar seed={id} />
+                    <PixelAvatar seed={id} className="size-8" />
                     <span className="min-w-0 flex-1 truncate font-medium">
                       {nameOf(id)}
-                      {self && <span className="ml-1.5 text-xs text-muted-foreground">나</span>}
+                      {self && <span className="ml-1.5 text-xs font-normal text-muted-foreground">나</span>}
                     </span>
                     {mine ? (
-                      <span className="font-pixel fs-1 text-game">지목!</span>
+                      <span className="text-xs font-semibold text-game">내가 지목</span>
                     ) : (
                       s.voted.includes(id) && (
-                        <Check aria-label="투표 완료" className="size-5 text-neon-green" />
+                        <Check aria-label="투표 완료" className="size-5 text-pop-green" />
                       )
                     )}
                   </button>
@@ -180,9 +176,8 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
             })}
           </ul>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="font-pixel fs-1 text-muted-foreground">
-              VOTED <span className="text-neon-yellow">{s.voted.length}</span>/{s.participants.length} ·
-              마감 전에는 바꿀 수 있습니다
+            <p className="text-sm text-muted-foreground">
+              {s.voted.length}/{s.participants.length}명 투표 · 마감 전에는 바꿀 수 있습니다
             </p>
             {isHost && (
               <Button variant="outline" size="sm" onClick={() => send({ type: "closeVote" })}>
@@ -203,13 +198,15 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
     return (
       <Screen className="mx-auto w-full max-w-2xl">
         <div className="flex flex-col gap-6 p-5 sm:p-7">
-          {head("라이어 적발!")}
+          {head("라이어를 찾았습니다")}
           <div className="flex animate-pop flex-col items-center gap-3 py-2">
-            <PixelAvatar seed={s.liarId ?? ""} className="size-16" />
-            <p className="font-pixel fs-2 text-neon-red neon-text">{nameOf(s.liarId)}</p>
-            <p className="text-sm text-muted-foreground">라이어의 마지막 기회: 제시어를 맞히면 역전!</p>
+            <PixelAvatar seed={s.liarId ?? ""} className="size-14" />
+            <p className="font-pixel fs-2 text-foreground">{nameOf(s.liarId)}</p>
+            <p className="text-sm text-muted-foreground">
+              마지막 기회입니다. 라이어가 제시어를 맞히면 역전합니다.
+            </p>
           </div>
-          <LedTimer now={now} deadline={s.deadline} totalMs={30_000} />
+          <LedTimer deadline={s.deadline} totalMs={30_000} />
           {s.youAreLiar ? (
             <form onSubmit={submit} className="flex gap-3">
               <Input
@@ -226,9 +223,7 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
               </Button>
             </form>
           ) : (
-            <p className="text-center">
-              <Blink className="fs-15 text-muted-foreground">라이어가 고민하는 중…</Blink>
-            </p>
+            <p className="text-center text-sm text-muted-foreground">라이어가 고민하는 중…</p>
           )}
         </div>
       </Screen>
@@ -243,7 +238,7 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
       view={view}
       send={send}
       tone={!s.youPlaying ? "neutral" : iWon ? "win" : "lose"}
-      title={liarWon ? "LIAR WINS" : "CITIZENS WIN"}
+      title={liarWon ? "라이어 승리" : "시민 승리"}
       subtitle={
         !caught
           ? "라이어를 찾아내지 못했습니다."
@@ -255,39 +250,39 @@ export function Liar({ view, now, send, nameOf }: GameProps<View>) {
       }
     >
       <div className="flex flex-col gap-4">
-        <dl className="grid grid-cols-2 gap-3">
-          <div className="border-2 border-border bg-ink/50 p-3">
-            <dt className="font-pixel fs-1 text-muted-foreground">라이어</dt>
-            <dd className="mt-1 flex items-center gap-2 font-medium">
+        <dl className="grid grid-cols-2 gap-2.5">
+          <div className="border-2 border-border bg-card p-3">
+            <dt className="text-xs text-muted-foreground">라이어</dt>
+            <dd className="mt-1.5 flex items-center gap-2 font-semibold">
               <PixelAvatar seed={s.liarId ?? ""} className="size-7" />
               <span className="truncate">{nameOf(s.liarId)}</span>
             </dd>
           </div>
-          <div className="border-2 border-border bg-ink/50 p-3">
-            <dt className="font-pixel fs-1 text-muted-foreground">제시어 · {s.category}</dt>
-            <dd className="font-pixel mt-1 fs-15 text-game">{s.word}</dd>
+          <div className="border-2 border-border bg-card p-3">
+            <dt className="text-xs text-muted-foreground">제시어 · {s.category}</dt>
+            <dd className="mt-1.5 flex h-7 items-center font-semibold">{s.word}</dd>
           </div>
           {s.liarGuess && (
-            <div className="col-span-2 border-2 border-border bg-ink/50 p-3">
-              <dt className="font-pixel fs-1 text-muted-foreground">라이어의 답</dt>
-              <dd className="mt-1 font-medium">{s.liarGuess}</dd>
+            <div className="col-span-2 border-2 border-border bg-card p-3">
+              <dt className="text-xs text-muted-foreground">라이어의 답</dt>
+              <dd className="mt-1.5 font-semibold">{s.liarGuess}</dd>
             </div>
           )}
         </dl>
         <div>
-          <h3 className="font-pixel mb-2 fs-1 text-muted-foreground">투표 결과</h3>
+          <h3 className="mb-2 text-xs text-muted-foreground">투표 결과</h3>
           <ul className="grid gap-2 sm:grid-cols-2">
             {s.participants.map((id) => {
               const target = s.votes?.[id];
               return (
-                <li key={id} className="flex items-center gap-2 border-2 border-border bg-ink/50 px-3 py-2 text-sm">
+                <li key={id} className="flex items-center gap-2 border-2 border-border bg-card px-3 py-2 text-sm">
                   <span className="min-w-0 flex-1 truncate">{nameOf(id)}</span>
-                  <span className="text-muted-foreground">▶</span>
+                  <span className="text-muted-foreground">→</span>
                   <span
                     className={cn(
                       "min-w-0 flex-1 truncate text-right",
                       !target && "text-muted-foreground",
-                      target === s.liarId && "text-neon-green",
+                      target === s.liarId && "font-semibold text-pop-green",
                     )}
                   >
                     {target ? nameOf(target) : "기권"}

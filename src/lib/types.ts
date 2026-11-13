@@ -69,6 +69,56 @@ export type WordChainView = {
   winnerId: string | null;
 };
 
+export type Stroke = {
+  id: string;
+  color: string;
+  size: number;
+  /** x, y가 번갈아 들어갑니다. 각각 0~1000으로 정규화한 좌표입니다. */
+  points: number[];
+};
+
+export type DrawChat = {
+  id: number;
+  playerId: string | null;
+  kind: "chat" | "correct" | "system";
+  text: string;
+};
+
+export type DrawView = {
+  phase: "lobby" | "choose" | "draw" | "reveal" | "result";
+  categories: { key: string; label: string }[];
+  turn: number;
+  totalTurns: number;
+  drawerId: string | null;
+  youAreDrawer: boolean;
+  /** 그리는 사람에게만, 고르는 단계에서만 */
+  choices: string[] | null;
+  /** 그리는 사람과 이미 맞힌 사람에게, 그리고 공개 단계에서 모두에게 */
+  word: string | null;
+  /** 글자 수만 보이는 빈칸. 힌트가 열리면 초성으로 바뀝니다. */
+  mask: string;
+  deadline: number;
+  totalMs: number;
+  /** 이번 차례에 맞힌 사람과 얻은 점수 */
+  guessed: Record<string, number>;
+  drawerGain: number;
+  scores: Record<string, number>;
+  chat: DrawChat[];
+};
+
+export type LobbyView = {
+  you: { id: string; name: string } | null;
+  users: { id: string; name: string; room: { code: string; game: GameSlug } | null }[];
+  rooms: {
+    code: string;
+    game: GameSlug;
+    host: string;
+    players: number;
+    max: number;
+    playing: boolean;
+  }[];
+};
+
 type Base = {
   code: string;
   hostId: string;
@@ -78,6 +128,7 @@ type Base = {
 };
 
 export type RoomView =
+  | (Base & { game: "draw"; state: DrawView })
   | (Base & { game: "chosung"; state: ChosungView })
   | (Base & { game: "liar"; state: LiarView })
   | (Base & { game: "typing"; state: TypingView })

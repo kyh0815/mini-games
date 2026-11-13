@@ -1,13 +1,27 @@
-import { randomBytes, randomInt } from "node:crypto";
-import type { GameSlug } from "@/lib/games";
+import { randomInt } from "node:crypto";
+import { getGame, type GameSlug } from "@/lib/games";
 import type { GameAction, RoomView } from "@/lib/types";
+import { GameError } from "./errors";
 import { gameModules } from "./games";
+import { registerRoomSource, touchLobby } from "./lobby";
+import { pruneUsers, type User } from "./session";
 
+export { GameError };
+
+/** 방 안의 참가자. id는 전역 사용자 ID와 같습니다. */
 export type Player = {
   id: string;
-  token: string;
   name: string;
   connections: number;
+};
+
+type Listener = {
+  playerId: string;
+  push: (view: RoomView) => void;
+  /** 화면 상태와 별개로 흘려보내는 이벤트 (그림 획 등) */
+  send: (event: string, data: unknown) => void;
+  /** 방에서 내보낼 때 연결을 닫습니다. */
+  end: () => void;
 };
 
 export type Room = {
@@ -15,6 +29,7 @@ export type Room = {
   game: GameSlug;
   hostId: string;
   players: Player[];
+  banned: Set<string>;
   // 게임별 상태. 각 게임 모듈만 내부 구조를 압니다.
   state: unknown;
   listeners: Map<symbol, Listener>;
@@ -22,19 +37,11 @@ export type Room = {
   lastActive: number;
 };
 
-type Listener = {
-  playerId: string;
-  push: (view: RoomView) => void;
-  /** 방에서 내보낼 때 연결을 닫습니다. */
-  end: () => void;
-};
-
-export class GameError extends Error {}
-
 const MAX_ROOMS = 300;
-const MAX_PLAYERS = 12;
-const ROOM_TTL_MS = 30 * 60 * 1000;
-const LEAVE_GRACE_MS = 8000;
+/** 모두 나간 방을 지우기까지의 시간 */
+const EMPTY_ROOM_TTL_MS = 60_000;
+/** 새로고침·잠깐의 끊김을 봐주는 시간 */
+const LEAVE_GRACE_MS = 6_000;
 // 헷갈리는 글자(0/O, 1/I 등) 제외
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -43,16 +50,37 @@ type Store = { rooms: Map<string, Room>; sweeper?: ReturnType<typeof setInterval
 const g = globalThis as typeof globalThis & { __miniGamesStore?: Store };
 const store: Store = (g.__miniGamesStore ??= { rooms: new Map() });
 
+function inLobby(room: Room): boolean {
+  return (room.state as { phase?: string }).phase === "lobby";
+}
+
+registerRoomSource(() =>
+  [...store.rooms.values()].map((room) => ({
+    code: room.code,
+    game: room.game,
+    hostId: room.hostId,
+    playing: !inLobby(room),
+    online: room.players.filter((p) => p.connections > 0).map((p) => p.id),
+    total: room.players.length,
+  })),
+);
+
+function deleteRoom(room: Room): void {
+  if (room.timer) clearTimeout(room.timer);
+  room.timer = null;
+  for (const listener of [...room.listeners.values()]) listener.end();
+  store.rooms.delete(room.code);
+  touchLobby();
+}
+
 if (!store.sweeper) {
   store.sweeper = setInterval(() => {
     const now = Date.now();
-    for (const room of store.rooms.values()) {
-      if (room.listeners.size === 0 && now - room.lastActive > ROOM_TTL_MS) {
-        if (room.timer) clearTimeout(room.timer);
-        store.rooms.delete(room.code);
-      }
+    for (const room of [...store.rooms.values()]) {
+      if (room.listeners.size === 0 && now - room.lastActive > EMPTY_ROOM_TTL_MS) deleteRoom(room);
     }
-  }, 60_000);
+    pruneUsers();
+  }, 15_000);
   store.sweeper.unref?.();
 }
 
@@ -64,64 +92,58 @@ function newCode(): string {
   }
 }
 
-export function cleanName(raw: unknown): string {
-  if (typeof raw !== "string") throw new GameError("이름을 입력해 주세요.");
-  const name = raw.replace(/\s+/g, " ").trim();
-  if (name.length < 1 || name.length > 12) {
-    throw new GameError("이름은 1~12자로 입력해 주세요.");
-  }
-  return name;
-}
-
-function newPlayer(name: string): Player {
-  return {
-    id: randomBytes(6).toString("hex"),
-    token: randomBytes(24).toString("hex"),
-    name,
-    connections: 0,
-  };
-}
-
-export function createRoom(game: GameSlug, name: string): { room: Room; player: Player } {
+export function createRoom(game: GameSlug, user: User): Room {
   if (store.rooms.size >= MAX_ROOMS) {
     throw new GameError("지금은 방을 더 만들 수 없습니다. 잠시 뒤에 다시 시도해 주세요.");
   }
-  const player = newPlayer(name);
   const room: Room = {
     code: newCode(),
     game,
-    hostId: player.id,
-    players: [player],
+    hostId: user.id,
+    players: [{ id: user.id, name: user.name, connections: 0 }],
+    banned: new Set(),
     state: gameModules[game].init(),
     listeners: new Map(),
     timer: null,
     lastActive: Date.now(),
   };
   store.rooms.set(room.code, room);
-  return { room, player };
+  touchLobby();
+  return room;
 }
 
 export function getRoom(code: string): Room | undefined {
   return store.rooms.get(code.toUpperCase());
 }
 
-export function findPlayer(room: Room, token: unknown): Player | undefined {
-  if (typeof token !== "string" || token.length === 0) return undefined;
-  return room.players.find((p) => p.token === token);
+export function findPlayer(room: Room, user: User | undefined): Player | undefined {
+  return user ? room.players.find((p) => p.id === user.id) : undefined;
 }
 
-export function joinRoom(room: Room, name: string): Player {
-  if (room.players.length >= MAX_PLAYERS) {
-    throw new GameError(`방이 가득 찼습니다. (최대 ${MAX_PLAYERS}명)`);
-  }
-  if (room.players.some((p) => p.name === name)) {
-    throw new GameError("이미 같은 이름을 쓰는 사람이 있습니다.");
-  }
-  const player = newPlayer(name);
+/** 이미 참가 중이면 그 자리로 돌아갑니다. */
+export function joinRoom(room: Room, user: User): Player {
+  const existing = findPlayer(room, user);
+  if (existing) return existing;
+  if (room.banned.has(user.id)) throw new GameError("방장이 내보낸 방에는 다시 들어갈 수 없습니다.");
+  const max = getGame(room.game)?.maxPlayers ?? 12;
+  if (room.players.length >= max) throw new GameError(`방이 가득 찼습니다. (최대 ${max}명)`);
+  const player: Player = { id: user.id, name: user.name, connections: 0 };
   room.players.push(player);
   room.lastActive = Date.now();
   broadcast(room);
   return player;
+}
+
+/** 닉네임을 바꾸면 들어가 있는 방에도 반영합니다. */
+export function renameEverywhere(user: User): void {
+  for (const room of store.rooms.values()) {
+    const player = findPlayer(room, user);
+    if (player && player.name !== user.name) {
+      player.name = user.name;
+      broadcast(room);
+    }
+  }
+  touchLobby();
 }
 
 export function viewFor(room: Room, playerId: string): RoomView {
@@ -144,6 +166,19 @@ export function broadcast(room: Room): void {
   for (const listener of room.listeners.values()) {
     try {
       listener.push(viewFor(room, listener.playerId));
+    } catch {
+      // 끊긴 연결은 unsubscribe에서 정리됩니다.
+    }
+  }
+  touchLobby();
+}
+
+/** 화면 상태 전체를 다시 보내지 않고 작은 이벤트만 흘려보냅니다. */
+export function emit(room: Room, event: string, data: unknown, exceptPlayerId?: string): void {
+  for (const listener of room.listeners.values()) {
+    if (listener.playerId === exceptPlayerId) continue;
+    try {
+      listener.send(event, data);
     } catch {
       // 끊긴 연결은 unsubscribe에서 정리됩니다.
     }
@@ -172,16 +207,17 @@ export function clearRoomTimer(room: Room): void {
 export function subscribe(
   room: Room,
   player: Player,
-  push: (view: RoomView) => void,
-  end: () => void,
+  handlers: Pick<Listener, "push" | "send" | "end">,
 ): () => void {
   const key = Symbol();
-  room.listeners.set(key, { playerId: player.id, push, end });
+  const listener: Listener = { playerId: player.id, ...handlers };
+  room.listeners.set(key, listener);
   player.connections += 1;
   room.lastActive = Date.now();
   broadcast(room);
+  gameModules[room.game].onSubscribe?.(room, (event, data) => listener.send(event, data));
   return () => {
-    room.listeners.delete(key);
+    if (!room.listeners.delete(key)) return;
     player.connections = Math.max(0, player.connections - 1);
     room.lastActive = Date.now();
     broadcast(room);
@@ -191,33 +227,33 @@ export function subscribe(
   };
 }
 
-function inLobby(room: Room): boolean {
-  return (room.state as { phase?: string }).phase === "lobby";
-}
-
 function passHost(room: Room, from: Player): void {
   if (room.hostId !== from.id) return;
   const next = room.players.find((p) => p !== from && p.connections > 0);
   if (next) room.hostId = next.id;
 }
 
-/** 새로고침은 봐주고, 정말 나간 사람만 정리합니다. */
-function handleGone(room: Room, player: Player): void {
-  if (player.connections > 0 || !room.players.includes(player)) return;
+function removeIfLobby(room: Room, player: Player): void {
   passHost(room, player);
   if (inLobby(room)) room.players = room.players.filter((p) => p !== player);
+  if (room.players.length === 0) deleteRoom(room);
+}
+
+/** 새로고침은 봐주고, 정말 나간 사람만 정리합니다. */
+function handleGone(room: Room, player: Player): void {
+  if (!store.rooms.has(room.code)) return;
+  if (player.connections > 0 || !room.players.includes(player)) return;
+  removeIfLobby(room, player);
   broadcast(room);
 }
 
 /** 플레이어의 연결을 모두 닫습니다. 게임 중이면 기록이 깨지지 않게 명단에는 남깁니다. */
 function eject(room: Room, player: Player): void {
-  passHost(room, player);
-  if (inLobby(room)) room.players = room.players.filter((p) => p !== player);
-  // 다시 들어오지 못하도록 토큰을 무효화합니다.
-  player.token = randomBytes(24).toString("hex");
   for (const listener of [...room.listeners.values()]) {
     if (listener.playerId === player.id) listener.end();
   }
+  player.connections = 0;
+  removeIfLobby(room, player);
 }
 
 export function dispatch(room: Room, player: Player, action: unknown): void {
@@ -234,6 +270,7 @@ export function dispatch(room: Room, player: Player, action: unknown): void {
     if (!inLobby(room)) throw new GameError("대기실에서만 내보낼 수 있습니다.");
     const target = room.players.find((p) => p.id === a.target);
     if (!target || target === player) throw new GameError("내보낼 사람을 찾을 수 없습니다.");
+    room.banned.add(target.id);
     eject(room, target);
   } else if (a.type === "reset") {
     if (!isHost) throw new GameError("방장만 할 수 있습니다.");
@@ -241,10 +278,11 @@ export function dispatch(room: Room, player: Player, action: unknown): void {
     room.state = gameModules[room.game].init();
     // 게임 도중 나간 사람은 대기실로 돌아올 때 정리합니다.
     room.players = room.players.filter((p) => p.connections > 0 || p.id === room.hostId);
-  } else {
-    gameModules[room.game].handle(room, player, a, isHost);
+  } else if (gameModules[room.game].handle(room, player, a, isHost) === "quiet") {
+    // 그림 획처럼 잦은 동작은 화면 상태 전체를 다시 보내지 않습니다.
+    return;
   }
-  broadcast(room);
+  if (store.rooms.has(room.code)) broadcast(room);
 }
 
 export function shuffle<T>(items: readonly T[]): T[] {

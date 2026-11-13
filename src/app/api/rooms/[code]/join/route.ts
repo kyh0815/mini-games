@@ -1,5 +1,6 @@
-import { fail, notFound, rateLimit, readJson, readSession, sessionCookie } from "@/server/http";
-import { cleanName, findPlayer, getRoom, joinRoom } from "@/server/rooms";
+import { fail, notFound, rateLimit } from "@/server/http";
+import { getRoom, joinRoom } from "@/server/rooms";
+import { requireUser } from "@/server/session";
 
 export async function POST(request: Request, ctx: RouteContext<"/api/rooms/[code]/join">) {
   try {
@@ -7,17 +8,8 @@ export async function POST(request: Request, ctx: RouteContext<"/api/rooms/[code
     const { code } = await ctx.params;
     const room = getRoom(code);
     if (!room) return notFound();
-    const body = await readJson(request);
-    // 새로고침 등으로 다시 들어온 사람은 기존 자리로 돌려보냅니다.
-    if (findPlayer(room, readSession(request, room.code))) {
-      return Response.json({ joined: true });
-    }
-    if (body.name === undefined) return Response.json({ joined: false });
-    const player = joinRoom(room, cleanName(body.name));
-    return Response.json(
-      { joined: true },
-      { headers: { "Set-Cookie": sessionCookie(request, room.code, player.token) } },
-    );
+    joinRoom(room, requireUser(request));
+    return Response.json({ ok: true, game: room.game });
   } catch (err) {
     return fail(err);
   }

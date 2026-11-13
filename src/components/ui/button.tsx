@@ -3,34 +3,30 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 import { Slot } from "radix-ui"
 
-// 오락실 버튼: 두꺼운 아래 그림자가 있고, 누르면 실제로 눌린 것처럼 내려갑니다.
+// 단단한 그림자가 있고, 누르면 그림자만큼 내려가는 버튼입니다.
+const PRESS = "pixel-shadow active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+
 const buttonVariants = cva(
-  "group/button font-pixel relative inline-flex shrink-0 items-center justify-center gap-2 border-2 border-ink whitespace-nowrap outline-none select-none transition-[transform,box-shadow,filter,background-color,color] duration-75 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 disabled:saturate-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
+  "group/button relative inline-flex shrink-0 items-center justify-center gap-2 border-2 border-ink text-sm font-semibold whitespace-nowrap outline-none select-none transition-[transform,box-shadow,background-color,color,border-color] duration-75 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {
-        default:
-          "bg-primary text-primary-foreground pixel-shadow hover:brightness-110 active:translate-y-1 active:shadow-none",
-        game:
-          "bg-game text-ink pixel-shadow hover:brightness-110 active:translate-y-1 active:shadow-none",
-        coin:
-          "bg-neon-yellow text-ink pixel-shadow hover:brightness-110 active:translate-y-1 active:shadow-none",
-        secondary:
-          "bg-secondary text-secondary-foreground pixel-shadow hover:bg-accent active:translate-y-1 active:shadow-none",
+        default: `bg-primary text-primary-foreground hover:bg-[color-mix(in_oklch,var(--primary),white_12%)] ${PRESS}`,
+        game: `bg-game text-ink hover:bg-[color-mix(in_oklch,var(--game),white_12%)] ${PRESS}`,
+        secondary: `bg-secondary text-secondary-foreground hover:bg-accent ${PRESS}`,
         outline:
-          "border-border bg-ink/60 text-foreground hover:border-game hover:text-game aria-expanded:border-game aria-expanded:text-game",
+          "border-border bg-transparent text-foreground hover:border-foreground/60 hover:bg-muted/60 aria-expanded:border-foreground/60 aria-expanded:bg-muted/60",
         ghost:
           "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
-        destructive:
-          "bg-destructive text-ink pixel-shadow hover:brightness-110 active:translate-y-1 active:shadow-none",
-        link: "border-transparent font-sans text-game underline-offset-4 hover:underline",
+        destructive: `bg-destructive text-ink hover:bg-[color-mix(in_oklch,var(--destructive),white_12%)] ${PRESS}`,
+        link: "border-transparent text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-11 px-5 fs-15",
-        sm: "h-9 px-3 fs-1",
-        lg: "h-14 px-7 fs-2",
-        icon: "size-11",
-        "icon-sm": "size-9 [&_svg:not([class*='size-'])]:size-4",
+        default: "h-10 px-4",
+        sm: "h-8 px-3 text-xs [&_svg:not([class*='size-'])]:size-4",
+        lg: "h-12 px-6 text-base",
+        icon: "size-10",
+        "icon-sm": "size-8 [&_svg:not([class*='size-'])]:size-4",
       },
     },
     defaultVariants: {

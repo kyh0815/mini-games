@@ -1,6 +1,6 @@
-import { GameError } from "./rooms";
+import { GameError } from "./errors";
 
-const MAX_BODY_BYTES = 4096;
+const MAX_BODY_BYTES = 16_384;
 
 export async function readJson(request: Request): Promise<Record<string, unknown>> {
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) {
@@ -9,7 +9,7 @@ export async function readJson(request: Request): Promise<Record<string, unknown
   try {
     const text = await request.text();
     if (text.length <= MAX_BODY_BYTES) {
-      const body: unknown = JSON.parse(text);
+      const body: unknown = text ? JSON.parse(text) : {};
       if (body && typeof body === "object" && !Array.isArray(body)) {
         return body as Record<string, unknown>;
       }
@@ -46,37 +46,6 @@ export function rateLimit(request: Request, scope: string, limit: number, window
   }
 }
 
-const cookieName = (code: string) => `mg_${code}`;
-
-/**
- * 참가자 토큰은 HttpOnly 쿠키로만 주고받습니다.
- * URL이나 스크립트에서 접근 가능한 저장소에 두지 않아 로그·XSS로 새지 않습니다.
- */
-export function sessionCookie(request: Request, code: string, token: string): string {
-  const secure =
-    new URL(request.url).protocol === "https:" ||
-    request.headers.get("x-forwarded-proto") === "https";
-  return [
-    `${cookieName(code)}=${token}`,
-    `Path=/api/rooms/${code}`,
-    "HttpOnly",
-    "SameSite=Strict",
-    "Max-Age=86400",
-    secure ? "Secure" : "",
-  ]
-    .filter(Boolean)
-    .join("; ");
-}
-
-export function readSession(request: Request, code: string): string | undefined {
-  const name = cookieName(code.toUpperCase());
-  for (const part of (request.headers.get("cookie") ?? "").split(";")) {
-    const [key, value] = part.trim().split("=");
-    if (key === name) return value;
-  }
-  return undefined;
-}
-
 export function fail(err: unknown): Response {
   if (err instanceof GameError) {
     return Response.json({ error: err.message }, { status: 400 });
@@ -87,4 +56,63 @@ export function fail(err: unknown): Response {
 
 export function notFound(): Response {
   return Response.json({ error: "방을 찾을 수 없습니다." }, { status: 404 });
+}
+
+const SSE_HEADERS = {
+  "Content-Type": "text/event-stream; charset=utf-8",
+  "Cache-Control": "no-cache, no-transform",
+  Connection: "keep-alive",
+  "X-Accel-Buffering": "no",
+};
+
+type SseWriter = {
+  /** event를 생략하면 기본 message 이벤트로 나갑니다. */
+  send: (data: string, event?: string) => void;
+  close: () => void;
+};
+
+/**
+ * Server-Sent Events 응답을 만듭니다.
+ * open은 구독을 걸고 해제 함수를 돌려줍니다. 연결이 끊기면 자동으로 해제합니다.
+ */
+export function sse(request: Request, open: (writer: SseWriter) => () => void): Response {
+  const encoder = new TextEncoder();
+  let cleanup = () => {};
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      let closed = false;
+      let release = () => {};
+      const write = (chunk: string) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(chunk));
+        } catch {
+          cleanup();
+        }
+      };
+      cleanup = () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(heartbeat);
+        release();
+        try {
+          controller.close();
+        } catch {
+          // 이미 닫힌 스트림
+        }
+      };
+      // 끊겼을 때 1초 뒤 다시 붙도록 알려 둡니다.
+      write("retry: 1000\n\n");
+      const heartbeat = setInterval(() => write(": ping\n\n"), 20_000);
+      release = open({
+        send: (data, event) => write(`${event ? `event: ${event}\n` : ""}data: ${data}\n\n`),
+        close: () => cleanup(),
+      });
+      request.signal.addEventListener("abort", cleanup);
+    },
+    cancel() {
+      cleanup();
+    },
+  });
+  return new Response(stream, { headers: SSE_HEADERS });
 }

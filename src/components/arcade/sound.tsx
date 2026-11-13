@@ -49,11 +49,11 @@ function OnOff({
       value={value ? "on" : "off"}
       onValueChange={(next) => next && onChange(next === "on")}
     >
-      <ToggleGroupItem value="on" className="h-9 min-w-12">
-        ON
+      <ToggleGroupItem value="on" className="h-8 min-w-12">
+        켬
       </ToggleGroupItem>
-      <ToggleGroupItem value="off" className="h-9 min-w-12">
-        OFF
+      <ToggleGroupItem value="off" className="h-8 min-w-12">
+        끔
       </ToggleGroupItem>
     </ToggleGroup>
   );
@@ -70,7 +70,7 @@ export function SoundControl() {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72">
-        <p className="font-pixel fs-15 text-neon-yellow">SOUND</p>
+        <p className="font-pixel fs-1 tracking-wide text-muted-foreground">SOUND</p>
         <div className="flex items-center justify-between gap-3">
           <Label id="sound-music">배경 음악</Label>
           <OnOff id="sound-music" value={settings.music} onChange={(music) => audio.update({ music })} />
@@ -82,7 +82,7 @@ export function SoundControl() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <Label id="sound-volume">음량</Label>
-            <span className="font-pixel fs-1 text-muted-foreground tabular-nums">
+            <span className="text-sm text-muted-foreground tabular-nums">
               {Math.round(settings.volume * 100)}
             </span>
           </div>

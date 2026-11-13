@@ -9,18 +9,18 @@ const Toaster = (props: ToasterProps) => (
     theme="dark"
     position="top-center"
     icons={{
-      success: <Check className="size-5 text-neon-green" />,
-      info: <InfoBox className="size-5 text-neon-cyan" />,
-      warning: <WarningDiamond className="size-5 text-neon-yellow" />,
-      error: <WarningDiamond className="size-5 text-neon-red" />,
+      success: <Check className="size-5 text-pop-green" />,
+      info: <InfoBox className="size-5 text-pop-blue" />,
+      warning: <WarningDiamond className="size-5 text-pop-yellow" />,
+      error: <WarningDiamond className="size-5 text-pop-red" />,
     }}
     toastOptions={{
       unstyled: true,
       classNames: {
         toast:
-          "flex w-full items-center gap-3 border-2 border-border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-[4px_4px_0_0_var(--ink)]",
-        error: "border-neon-red!",
-        success: "border-neon-green!",
+          "flex w-full items-center gap-3 border-2 border-border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-[3px_3px_0_0_var(--ink)]",
+        error: "border-pop-red!",
+        success: "border-pop-green!",
         title: "font-medium",
         description: "text-muted-foreground",
       },

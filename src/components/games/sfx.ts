@@ -27,6 +27,20 @@ export function roomSfx(prev: RoomView | null, next: RoomView): void {
     }
   }
 
+  if (next.game === "draw" && prev.game === "draw") {
+    const a = prev.state;
+    const b = next.state;
+    const newlyGuessed = Object.keys(b.guessed).filter((id) => !(id in a.guessed));
+    if (newlyGuessed.includes(me)) audio.play("correct");
+    else if (newlyGuessed.length > 0) audio.play("blip");
+    if (b.phase === "choose" && a.phase !== "choose" && b.youAreDrawer) audio.play("turn");
+    if (b.phase === "draw" && a.phase === "choose") audio.play("go");
+    if (from !== "result" && to === "result") {
+      const best = Math.max(0, ...Object.values(b.scores));
+      audio.play(best > 0 && (b.scores[me] ?? 0) === best ? "win" : "lose");
+    }
+  }
+
   if (next.game === "liar" && prev.game === "liar") {
     const b = next.state;
     if (from !== to && (to === "vote" || to === "guess")) audio.play("turn");

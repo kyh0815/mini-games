@@ -1,27 +1,40 @@
+"use client";
+
 import Link from "next/link";
-import { Joystick } from "@/components/icons";
+import { User } from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import { useLobby } from "@/lib/lobby-store";
+import { openNickname } from "./nickname";
+import { PixelAvatar } from "./pixel-avatar";
 import { SoundControl } from "./sound";
 
 export function Header() {
+  const lobby = useLobby();
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-border bg-ink/85 backdrop-blur-md">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+    <header className="sticky top-0 z-40 border-b-2 border-ink bg-background">
+      <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/"
-          className="group flex items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex items-center gap-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="flex size-10 items-center justify-center border-2 border-ink bg-neon-pink text-ink pixel-shadow transition-transform group-hover:-translate-y-0.5">
-            <Joystick className="size-6" />
-          </span>
-          <span className="flex flex-col leading-none">
-            <span className="font-pixel fs-2 text-neon-pink neon-text">MINI ARCADE</span>
-            <span className="font-pixel mt-1 fs-1 text-muted-foreground">미니게임 오락실</span>
-          </span>
+          {/* 로고: 조이스틱을 단순화한 픽셀 마크 */}
+          <svg viewBox="0 0 8 8" aria-hidden shapeRendering="crispEdges" className="size-7">
+            <rect width="8" height="8" className="fill-primary" />
+            <path d="M3 1h2v2H3zM3.5 3h1v2h-1zM1 5h6v2H1z" className="fill-ink" />
+          </svg>
+          <span className="font-pixel fs-2 text-foreground">MINI ARCADE</span>
         </Link>
-        <div className="flex items-center gap-4">
-          <span className="font-pixel hidden fs-1 text-neon-yellow sm:inline">
-            CREDIT <span className="tabular-nums">99</span>
-          </span>
+        <div className="flex items-center gap-2">
+          {lobby.ready && (
+            <Button variant="outline" onClick={openNickname} className="max-w-44 gap-2 px-2.5">
+              {lobby.you ? (
+                <PixelAvatar seed={lobby.you.id} className="size-6 border-0" />
+              ) : (
+                <User />
+              )}
+              <span className="truncate">{lobby.you?.name ?? "닉네임 정하기"}</span>
+            </Button>
+          )}
           <SoundControl />
         </div>
       </div>
