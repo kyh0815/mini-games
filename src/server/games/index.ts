@@ -1,10 +1,17 @@
 import type { GameSlug } from "@/lib/games";
 import type { GameAction } from "@/lib/types";
 import type { Player, Room } from "../rooms";
+import { aimGame } from "./aim";
+import { baseballGame } from "./baseball";
 import { chosungGame } from "./chosung";
 import { drawGame } from "./draw";
 import { liarGame } from "./liar";
+import { memoryGame } from "./memory";
+import { reactionGame } from "./reaction";
+import { snakeGame } from "./snake";
+import { stairsGame } from "./stairs";
 import { typingGame } from "./typing";
+import { wordGame } from "./word";
 import { wordChainGame } from "./wordchain";
 
 export type GameModule = {
@@ -23,4 +30,11 @@ export const gameModules: Record<GameSlug, GameModule> = {
   liar: liarGame,
   typing: typingGame,
   wordchain: wordChainGame,
+  baseball: baseballGame,
+  word: wordGame,
+  snake: snakeGame,
+  memory: memoryGame,
+  reaction: reactionGame,
+  aim: aimGame,
+  stairs: stairsGame,
 };

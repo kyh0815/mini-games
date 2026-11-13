@@ -1,5 +1,18 @@
 import type { ComponentType, SVGProps } from "react";
-import { EyeOff, Keyboard, LinkIcon, MessageText, Pencil } from "@/components/icons";
+import {
+  EyeOff,
+  Grid3x3,
+  Hash,
+  Keyboard,
+  LinkIcon,
+  MessageText,
+  Pencil,
+  Snake,
+  Target,
+  TextStartA,
+  TrendingUp,
+  Zap,
+} from "@/components/icons";
 import type { GameSlug } from "@/lib/games";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +22,13 @@ const ICONS: Record<GameSlug, ComponentType<SVGProps<SVGSVGElement>>> = {
   liar: EyeOff,
   typing: Keyboard,
   wordchain: LinkIcon,
+  baseball: Hash,
+  word: TextStartA,
+  snake: Snake,
+  memory: Grid3x3,
+  reaction: Zap,
+  aim: Target,
+  stairs: TrendingUp,
 };
 
 /** 게임 대표색 바탕의 네모 아이콘. 게임을 구분하는 표식으로 씁니다. */

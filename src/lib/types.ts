@@ -1,4 +1,5 @@
 import type { GameSlug } from "./games";
+import type { BoardRows } from "./records";
 
 export type PlayerView = { id: string; name: string; online: boolean };
 
@@ -106,9 +107,111 @@ export type DrawView = {
   chat: DrawChat[];
 };
 
+export type BaseballView = {
+  phase: "lobby" | "setup" | "play" | "result";
+  digits: number;
+  /** 겨루는 두 사람 */
+  players: string[];
+  youPlaying: boolean;
+  /** 내가 정한 숫자. 결과 단계에서는 secrets로 모두 공개됩니다. */
+  yourSecret: string | null;
+  /** 숫자를 정한 사람 */
+  ready: string[];
+  turnId: string | null;
+  guesses: { playerId: string; guess: string; strike: number; ball: number }[];
+  /** 먼저 시작한 사람이 맞혀서, 상대에게 마지막 기회가 주어진 상태 */
+  lastChance: boolean;
+  deadline: number;
+  totalMs: number;
+  winnerId: string | null;
+  secrets: Record<string, string> | null;
+};
+
+/** 칸 하나의 판정: 자리까지 맞음 / 다른 자리에 있음 / 없음 */
+export type Mark = "hit" | "near" | "miss";
+
+export type WordView = {
+  phase: "lobby" | "play" | "result";
+  length: number;
+  maxTries: number;
+  deadline: number;
+  totalMs: number;
+  participants: string[];
+  /** 내 줄은 글자까지, 남의 줄은 판정만 보입니다. */
+  boards: Record<
+    string,
+    { rows: { keys: string[] | null; marks: Mark[] }[]; solvedMs: number | null; done: boolean }
+  >;
+  /** 결과 단계에서, 또는 내가 끝낸 뒤에 공개 */
+  answer: string | null;
+};
+
+export type SnakeView = {
+  phase: "lobby" | "play" | "result";
+  width: number;
+  height: number;
+  startAt: number;
+  deadline: number;
+  /** 몸통은 x, y가 번갈아 들어가며 머리가 맨 앞입니다. */
+  snakes: { id: string; body: number[]; alive: boolean; score: number }[];
+  foods: number[];
+  winnerId: string | null;
+};
+
+type SoloView = {
+  /** 이 게임의 순위표들 */
+  boards: BoardRows[];
+  /** 방금 끝낸 판의 순위와, 개인 최고 기록을 새로 썼는지 */
+  last: { board: string; value: number; rank: number; best: boolean } | null;
+};
+
+export type MemoryView = SoloView & {
+  phase: "lobby" | "play" | "result";
+  level: "easy" | "normal" | "hard";
+  cols: number;
+  /** 보이는 카드만 그림 번호가 들어 있습니다. */
+  faces: (number | null)[];
+  matched: boolean[];
+  moves: number;
+  /** 첫 카드를 뒤집은 시각. 아직이면 0 */
+  startAt: number;
+  finishedMs: number | null;
+};
+
+export type ReactionView = SoloView & {
+  phase: "lobby" | "wait" | "go" | "early" | "between" | "result";
+  round: number;
+  rounds: number;
+  times: number[];
+  average: number | null;
+};
+
+export type AimView = SoloView & {
+  phase: "lobby" | "play" | "result";
+  startAt: number;
+  deadline: number;
+  /** x, y가 번갈아 들어갑니다. 0~1000으로 정규화한 좌표입니다. */
+  targets: number[];
+  hits: number;
+  misses: number;
+};
+
+export type StairsView = SoloView & {
+  phase: "lobby" | "play" | "result";
+  startAt: number;
+  /** 계단 방향을 L/R로 이어 붙인 문자열 */
+  steps: string;
+  climbed: number;
+};
+
 export type LobbyView = {
   you: { id: string; name: string } | null;
-  users: { id: string; name: string; room: { code: string; game: GameSlug } | null }[];
+  users: {
+    id: string;
+    name: string;
+    /** joinable이 false면 혼자 하는 게임이라 따라 들어갈 수 없습니다. */
+    room: { code: string; game: GameSlug; joinable: boolean } | null;
+  }[];
   rooms: {
     code: string;
     game: GameSlug;
@@ -128,6 +231,13 @@ type Base = {
 };
 
 export type RoomView =
+  | (Base & { game: "baseball"; state: BaseballView })
+  | (Base & { game: "word"; state: WordView })
+  | (Base & { game: "snake"; state: SnakeView })
+  | (Base & { game: "memory"; state: MemoryView })
+  | (Base & { game: "reaction"; state: ReactionView })
+  | (Base & { game: "aim"; state: AimView })
+  | (Base & { game: "stairs"; state: StairsView })
   | (Base & { game: "draw"; state: DrawView })
   | (Base & { game: "chosung"; state: ChosungView })
   | (Base & { game: "liar"; state: LiarView })

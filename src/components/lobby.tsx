@@ -2,11 +2,12 @@
 
 import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { GameIcon } from "@/components/arcade/game-icon";
 import { askNickname } from "@/components/arcade/nickname";
 import { Label11, Panel } from "@/components/arcade/panel";
+import { RecordList } from "@/components/games/solo";
 import { PixelAvatar } from "@/components/arcade/pixel-avatar";
 import { Rules } from "@/components/games/shared";
 import { ArrowRight, Users } from "@/components/icons";
@@ -24,6 +25,7 @@ import { audio } from "@/lib/audio";
 import { post } from "@/lib/client";
 import { games, getGame, type Game } from "@/lib/games";
 import { useLobby } from "@/lib/lobby-store";
+import { BOARDS, type BoardRows } from "@/lib/records";
 import { cn } from "@/lib/utils";
 
 /** 닉네임이 없으면 먼저 정하게 한 뒤 방으로 들어갑니다. */
@@ -150,43 +152,61 @@ function GameGrid() {
     }
   };
 
+  const groups = [
+    { title: "함께 하는 게임", hint: "방을 만들어 팀원과 같이 합니다", list: games.filter((x) => !x.solo) },
+    { title: "혼자 도전하는 게임", hint: "기록이 명예의 전당에 남습니다", list: games.filter((x) => x.solo) },
+  ];
+
   return (
     <>
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {games.map((game, i) => (
-          <li key={game.slug}>
-            <button
-              type="button"
-              data-game={game.slug}
-              onClick={() => setSelected(game)}
-              className="group flex h-full w-full items-center gap-3 border-2 border-ink bg-card p-3 text-left outline-none pixel-shadow transition-[transform,box-shadow] hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:translate-x-[3px] active:translate-y-[3px] active:shadow-none sm:flex-col sm:items-stretch sm:p-4"
-            >
-              {/* 좁은 화면에서는 한 줄짜리 목록으로, 넓은 화면에서는 카드로 보입니다. */}
-              <span className="flex items-center justify-between">
-                <GameIcon game={game.slug} className="size-10" />
-                <span className="font-pixel hidden fs-1 text-muted-foreground sm:block">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-none sm:gap-3">
-                <span className="font-pixel truncate fs-15 text-foreground sm:fs-2">{game.title}</span>
-                <span className="hidden flex-1 text-sm/relaxed text-muted-foreground sm:block">
-                  {game.description}
-                </span>
-                <span className="text-xs text-muted-foreground sm:hidden">{game.players}</span>
-              </span>
-              <span className="hidden flex-1 sm:block" />
-              <span className="flex items-center justify-between text-sm sm:border-t-2 sm:border-border sm:pt-3">
-                <span className="hidden items-center gap-1.5 text-muted-foreground sm:flex">
-                  <Users className="size-4" />
-                  {game.players}
-                </span>
-                <ArrowRight className="size-5 text-game transition-transform group-hover:translate-x-1" />
-              </span>
-            </button>
-          </li>
+      <div className="flex flex-col gap-8">
+        {groups.map((group) => (
+          <section key={group.title} className="flex flex-col gap-3">
+            <h2 className="flex flex-wrap items-baseline gap-x-3 font-semibold">
+              {group.title}
+              <span className="text-sm font-normal text-muted-foreground">{group.hint}</span>
+            </h2>
+            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {group.list.map((game) => {
+                const i = games.indexOf(game);
+                return (
+<li key={game.slug}>
+                  <button
+                    type="button"
+                    data-game={game.slug}
+                    onClick={() => setSelected(game)}
+                    className="group flex h-full w-full items-center gap-3 border-2 border-ink bg-card p-3 text-left outline-none pixel-shadow transition-[transform,box-shadow] hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:translate-x-[3px] active:translate-y-[3px] active:shadow-none sm:flex-col sm:items-stretch sm:p-4"
+                  >
+                    {/* 좁은 화면에서는 한 줄짜리 목록으로, 넓은 화면에서는 카드로 보입니다. */}
+                    <span className="flex items-center justify-between">
+                      <GameIcon game={game.slug} className="size-10" />
+                      <span className="font-pixel hidden fs-1 text-muted-foreground sm:block">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-none sm:gap-3">
+                      <span className="font-pixel truncate fs-15 text-foreground sm:fs-2">{game.title}</span>
+                      <span className="hidden flex-1 text-sm/relaxed text-muted-foreground sm:block">
+                        {game.description}
+                      </span>
+                      <span className="text-xs text-muted-foreground sm:hidden">{game.players}</span>
+                    </span>
+                    <span className="hidden flex-1 sm:block" />
+                    <span className="flex items-center justify-between text-sm sm:border-t-2 sm:border-border sm:pt-3">
+                      <span className="hidden items-center gap-1.5 text-muted-foreground sm:flex">
+                        <Users className="size-4" />
+                        {game.players}
+                      </span>
+                      <ArrowRight className="size-5 text-game transition-transform group-hover:translate-x-1" />
+                    </span>
+                  </button>
+                </li>
+                      );
+              })}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
 
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
         {selected && (
@@ -202,7 +222,7 @@ function GameGrid() {
             </DialogHeader>
             <Rules rules={selected.rules} />
             <Button size="lg" disabled={pending} onClick={() => create(selected)}>
-              {pending ? "만드는 중…" : "방 만들기"}
+              {pending ? "여는 중…" : selected.solo ? "시작하기" : "방 만들기"}
             </Button>
           </DialogContent>
         )}
@@ -211,7 +231,43 @@ function GameGrid() {
   );
 }
 
-type Tab = "rooms" | "games";
+function HallOfFame() {
+  const lobby = useLobby();
+  const [boards, setBoards] = useState<BoardRows[] | null>(null);
+  // 탭을 열 때마다 새로 읽습니다.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/records")
+      .then((res) => res.json())
+      .then((data: { boards: BoardRows[] }) => alive && setBoards(data.boards))
+      .catch(() => alive && setBoards([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!boards) return <div className="h-[4.5rem] border-2 border-dashed border-border" />;
+  return (
+    <ul className="grid items-start gap-4 sm:grid-cols-2">
+      {BOARDS.map((board) => (
+        <li key={board.key} data-game={board.game}>
+          <Panel
+            label={board.label}
+            action={<GameIcon game={board.game} className="size-6 border-0" />}
+          >
+            <RecordList
+              rows={boards.find((b) => b.key === board.key)?.rows.slice(0, 10) ?? []}
+              boardKey={board.key}
+              me={lobby.you?.name}
+            />
+          </Panel>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+type Tab = "rooms" | "games" | "records";
 
 /** 홈의 본문. 열린 방과 게임 목록을 탭으로 나눕니다. */
 export function LobbyTabs() {
@@ -244,6 +300,7 @@ export function LobbyTabs() {
               {games.length}
             </span>
           </TabsTrigger>
+          <TabsTrigger value="records">명예의 전당</TabsTrigger>
         </TabsList>
         <div className="pb-2">
           <JoinByCode onEnter={enter} />
@@ -254,6 +311,9 @@ export function LobbyTabs() {
       </TabsContent>
       <TabsContent value="games">
         <GameGrid />
+      </TabsContent>
+      <TabsContent value="records">
+        <HallOfFame />
       </TabsContent>
     </Tabs>
   );
@@ -288,7 +348,11 @@ export function OnlineUsers() {
                   {user.name}
                   {me && <span className="ml-1.5 text-xs font-normal text-muted-foreground">나</span>}
                 </span>
-                {user.room && game ? (
+                {user.room && game && !user.room.joinable ? (
+                  <span data-game={user.room.game} className="truncate text-xs text-game">
+                    {game.title}
+                  </span>
+                ) : user.room && game ? (
                   <button
                     type="button"
                     data-game={user.room.game}

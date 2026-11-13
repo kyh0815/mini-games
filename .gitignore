@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 명예의 전당 기록 (서버가 만드는 파일)
+/.data

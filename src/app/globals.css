@@ -33,6 +33,8 @@
   --color-pop-blue: var(--pop-blue);
   --color-pop-pink: var(--pop-pink);
   --color-pop-violet: var(--pop-violet);
+  --color-pop-orange: var(--pop-orange);
+  --color-pop-teal: var(--pop-teal);
   --color-inset: var(--inset);
   /* 현재 게임의 대표색. data-game 속성으로 바뀝니다. */
   --color-game: var(--game);
@@ -78,6 +80,8 @@
   --pop-blue: oklch(0.74 0.105 240);
   --pop-pink: oklch(0.75 0.115 5);
   --pop-violet: oklch(0.73 0.11 300);
+  --pop-orange: oklch(0.77 0.13 55);
+  --pop-teal: oklch(0.78 0.095 190);
   --game: var(--pop-yellow);
   color-scheme: dark;
 }
@@ -96,6 +100,27 @@
 }
 [data-game="wordchain"] {
   --game: var(--pop-green);
+}
+[data-game="baseball"] {
+  --game: var(--pop-orange);
+}
+[data-game="word"] {
+  --game: var(--pop-teal);
+}
+[data-game="snake"] {
+  --game: var(--pop-green);
+}
+[data-game="memory"] {
+  --game: var(--pop-violet);
+}
+[data-game="reaction"] {
+  --game: var(--pop-red);
+}
+[data-game="aim"] {
+  --game: var(--pop-blue);
+}
+[data-game="stairs"] {
+  --game: var(--pop-yellow);
 }
 
 @layer base {
@@ -201,6 +226,15 @@
   }
   75% {
     transform: translateX(6px);
+  }
+}
+/* 체력 막대가 오른쪽에서 왼쪽으로 줄어듭니다. */
+@keyframes drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
   }
 }
 @keyframes rise {

@@ -33,10 +33,14 @@ export function registerRoomSource(fn: () => RoomSummary[]): void {
   store.rooms = fn;
 }
 
+const isSolo = (game: GameSlug) => games.find((x) => x.slug === game)?.solo === true;
+
 function snapshot(): Omit<LobbyView, "you"> {
-  const rooms = store.rooms().filter((r) => r.online.length > 0);
+  const all = store.rooms().filter((r) => r.online.length > 0);
+  // 혼자 하는 게임의 방은 들어갈 수 없으므로 열린 방 목록에는 넣지 않습니다.
+  const rooms = all.filter((r) => !isSolo(r.game));
   const where = new Map<string, RoomSummary>();
-  for (const room of rooms) for (const id of room.online) where.set(id, room);
+  for (const room of all) for (const id of room.online) where.set(id, room);
   const names = new Map<string, string>();
   const users: LobbyView["users"] = [];
   for (const user of allUsers()) {
@@ -46,7 +50,7 @@ function snapshot(): Omit<LobbyView, "you"> {
     users.push({
       id: user.id,
       name: user.name,
-      room: room ? { code: room.code, game: room.game } : null,
+      room: room ? { code: room.code, game: room.game, joinable: !isSolo(room.game) } : null,
     });
   }
   users.sort((a, b) => a.name.localeCompare(b.name, "ko"));

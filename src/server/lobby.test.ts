@@ -76,7 +76,11 @@ describe("lobby", () => {
       players: 1,
       playing: false,
     });
-    expect(last().users.find((u) => u.id === b.user.id)?.room).toEqual({ code: room.code, game: "draw" });
+    expect(last().users.find((u) => u.id === b.user.id)?.room).toEqual({
+      code: room.code,
+      game: "draw",
+      joinable: true,
+    });
 
     dispatch(room, player, { type: "leave" });
     leave();

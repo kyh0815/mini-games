@@ -64,3 +64,24 @@ export function nextStarts(lastChar: string): string[] {
 export function normalize(text: string): string {
   return text.replace(/\s+/g, "").toLowerCase();
 }
+
+const KEY_CHO = ["ㄱ", "ㄱㄱ", "ㄴ", "ㄷ", "ㄷㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅂㅂ", "ㅅ", "ㅅㅅ", "ㅇ", "ㅈ", "ㅈㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+const KEY_JUNG = ["ㅏ", "ㅐ", "ㅑ", "ㅑㅣ", "ㅓ", "ㅔ", "ㅕ", "ㅕㅣ", "ㅗ", "ㅗㅏ", "ㅗㅐ", "ㅗㅣ", "ㅛ", "ㅜ", "ㅜㅓ", "ㅜㅔ", "ㅜㅣ", "ㅠ", "ㅡ", "ㅡㅣ", "ㅣ"];
+const KEY_JONG = ["", "ㄱ", "ㄱㄱ", "ㄱㅅ", "ㄴ", "ㄴㅈ", "ㄴㅎ", "ㄷ", "ㄹ", "ㄹㄱ", "ㄹㅁ", "ㄹㅂ", "ㄹㅅ", "ㄹㅌ", "ㄹㅍ", "ㄹㅎ", "ㅁ", "ㅂ", "ㅂㅅ", "ㅅ", "ㅅㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+
+/** 낱말 맞히기에서 쓰는 글쇠. 시프트 없이 누르는 자음 14개와 모음 12개입니다. */
+export const JAMO_KEYS = "ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡ";
+
+/**
+ * 낱말을 글쇠 단위로 풉니다. 쌍자음·겹모음·겹받침은 둘로 나눕니다.
+ * "감자" → ㄱㅏㅁㅈㅏ, "계란" → ㄱㅕㅣㄹㅏㄴ, "꽃" → ㄱㄱㅗㅊ
+ */
+export function toKeys(word: string): string[] {
+  const out: string[] = [];
+  for (const ch of word) {
+    const d = decompose(ch);
+    if (!d) return [];
+    out.push(...KEY_CHO[d[0]], ...KEY_JUNG[d[1]], ...KEY_JONG[d[2]]);
+  }
+  return out;
+}

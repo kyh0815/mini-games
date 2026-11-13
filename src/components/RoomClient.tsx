@@ -37,11 +37,18 @@ import { getGame } from "@/lib/games";
 import { useLobby } from "@/lib/lobby-store";
 import type { GameAction, RoomView, Stroke } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Aim } from "./games/Aim";
+import { Baseball } from "./games/Baseball";
 import { Chosung } from "./games/Chosung";
 import { Draw } from "./games/Draw";
 import { Liar } from "./games/Liar";
+import { Memory } from "./games/Memory";
+import { Reaction } from "./games/Reaction";
 import { Rules } from "./games/shared";
+import { Snake } from "./games/Snake";
+import { Stairs } from "./games/Stairs";
 import { Typing } from "./games/Typing";
+import { Word } from "./games/Word";
 import { WordChain } from "./games/WordChain";
 import { roomSfx } from "./games/sfx";
 
@@ -203,6 +210,7 @@ export function RoomClient({ code }: { code: string }) {
 
   const game = getGame(view.game)!;
   const inLobby = view.state.phase === "lobby";
+  const solo = game.solo === true;
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -230,7 +238,7 @@ export function RoomClient({ code }: { code: string }) {
                 size="icon"
                 aria-label="방 나가기"
                 // 대기실에서는 바로 나가고, 게임 중에는 한 번 확인합니다.
-                onClick={() => (inLobby ? leave() : setConfirmLeave(true))}
+                onClick={() => (inLobby || solo ? leave() : setConfirmLeave(true))}
               >
                 <ArrowLeft />
               </Button>
@@ -242,14 +250,19 @@ export function RoomClient({ code }: { code: string }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex h-10 items-center gap-2 border-2 border-ink bg-inset px-3">
-            <span className="font-pixel fs-1 text-muted-foreground">ROOM</span>
-            <span className="font-pixel fs-2 tracking-[0.15em] text-foreground">{view.code}</span>
-          </div>
-          <Button variant="secondary" onClick={copyLink}>
-            {copied ? <Check /> : <LinkIcon />}
-            초대 링크
-          </Button>
+          {/* 혼자 하는 게임에는 초대할 방이 없습니다. */}
+          {!solo && (
+            <>
+              <div className="flex h-10 items-center gap-2 border-2 border-ink bg-inset px-3">
+                <span className="font-pixel fs-1 text-muted-foreground">ROOM</span>
+                <span className="font-pixel fs-2 tracking-[0.15em] text-foreground">{view.code}</span>
+              </div>
+              <Button variant="secondary" onClick={copyLink}>
+                {copied ? <Check /> : <LinkIcon />}
+                초대 링크
+              </Button>
+            </>
+          )}
           <Dialog>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -301,7 +314,7 @@ export function RoomClient({ code }: { code: string }) {
         </p>
       )}
 
-      {!inLobby && view.game !== "draw" && (
+      {!inLobby && !solo && view.game !== "draw" && (
         <ul className="flex flex-wrap gap-2" aria-label="참가자">
           {view.players.map((p) => (
             <li
@@ -326,6 +339,13 @@ export function RoomClient({ code }: { code: string }) {
       {view.game === "liar" && <Liar view={view} {...props} />}
       {view.game === "typing" && <Typing view={view} {...props} />}
       {view.game === "wordchain" && <WordChain view={view} {...props} />}
+      {view.game === "baseball" && <Baseball view={view} {...props} />}
+      {view.game === "word" && <Word view={view} {...props} />}
+      {view.game === "snake" && <Snake view={view} {...props} />}
+      {view.game === "memory" && <Memory view={view} {...props} />}
+      {view.game === "reaction" && <Reaction view={view} {...props} />}
+      {view.game === "aim" && <Aim view={view} {...props} />}
+      {view.game === "stairs" && <Stairs view={view} {...props} />}
     </div>
   );
 }
