@@ -1,4 +1,4 @@
-import { notFound } from "@/server/http";
+import { notFound, readSession } from "@/server/http";
 import { findPlayer, getRoom, subscribe } from "@/server/rooms";
 
 const HEARTBEAT_MS = 20_000;
@@ -8,7 +8,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/rooms/[code]
   const { code } = await ctx.params;
   const room = getRoom(code);
   if (!room) return notFound();
-  const player = findPlayer(room, new URL(request.url).searchParams.get("token"));
+  const player = findPlayer(room, readSession(request, room.code));
   if (!player) {
     return Response.json({ error: "이 방의 참가자가 아닙니다." }, { status: 403 });
   }
@@ -26,9 +26,16 @@ export async function GET(request: Request, ctx: RouteContext<"/api/rooms/[code]
           cleanup();
         }
       };
-      const unsubscribe = subscribe(room, player, (view) => {
-        write(`data: ${JSON.stringify(view)}\n\n`);
-      });
+      const unsubscribe = subscribe(
+        room,
+        player,
+        (view) => write(`data: ${JSON.stringify(view)}\n\n`),
+        () => {
+          // 나가거나 내보내진 경우: 재연결하지 않도록 알리고 닫습니다.
+          write("event: gone\ndata: {}\n\n");
+          cleanup();
+        },
+      );
       const heartbeat = setInterval(() => write(": ping\n\n"), HEARTBEAT_MS);
       cleanup = () => {
         if (closed) return;

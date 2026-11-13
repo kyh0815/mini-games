@@ -1,17 +1,23 @@
 "use client";
 
+import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { post, saveName, saveToken, savedName } from "@/lib/client";
+import { toast } from "sonner";
+import { Coins, Play } from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Label } from "@/components/ui/label";
+import { audio } from "@/lib/audio";
+import { post, saveName, savedName } from "@/lib/client";
 import type { GameSlug } from "@/lib/games";
-import { Button, Input } from "./ui";
 
 /** 게임 소개 페이지의 '방 만들기' */
 export function CreateRoom({ game }: { game: GameSlug }) {
   const router = useRouter();
   const nameRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (nameRef.current && !nameRef.current.value) nameRef.current.value = savedName();
@@ -20,28 +26,39 @@ export function CreateRoom({ game }: { game: GameSlug }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const name = nameRef.current?.value.trim() ?? "";
-    if (!name) return setError("이름을 입력해 주세요.");
+    if (!name) {
+      toast.error("이름을 입력해 주세요.");
+      nameRef.current?.focus();
+      return;
+    }
     setBusy(true);
     try {
-      const res = await post<{ code: string; token: string }>("/api/rooms", { game, name });
+      const res = await post<{ code: string }>("/api/rooms", { game, name });
       saveName(name);
-      saveToken(res.code, res.token);
+      audio.play("coin");
       router.push(`/rooms/${res.code}`);
     } catch (err) {
-      setError((err as Error).message);
+      toast.error((err as Error).message);
       setBusy(false);
     }
   };
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
-      <div className="flex gap-2">
-        <Input ref={nameRef} placeholder="내 이름 (1~12자)" maxLength={12} />
-        <Button type="submit" disabled={busy} className="shrink-0">
-          방 만들기
-        </Button>
+    <form onSubmit={submit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="player-name">플레이어 이름</Label>
+        <Input
+          id="player-name"
+          ref={nameRef}
+          placeholder="이름 (1~12자)"
+          maxLength={12}
+          autoComplete="off"
+        />
       </div>
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      <Button type="submit" variant="coin" size="lg" disabled={busy} className="w-full">
+        <Coins />
+        {busy ? "LOADING…" : "방 만들기"}
+      </Button>
     </form>
   );
 }
@@ -50,22 +67,41 @@ export function CreateRoom({ game }: { game: GameSlug }) {
 export function JoinByCode() {
   const router = useRouter();
   const [code, setCode] = useState("");
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const clean = code.trim().toUpperCase();
-    if (clean.length === 4) router.push(`/rooms/${clean}`);
+  const go = (value: string) => {
+    if (value.length === 4) router.push(`/rooms/${value}`);
   };
   return (
-    <form onSubmit={submit} className="flex gap-2">
-      <Input
-        value={code}
-        onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-        placeholder="방 코드 4자리"
-        maxLength={4}
-        className="w-40 font-mono tracking-widest"
-        autoComplete="off"
-      />
-      <Button type="submit" variant="ghost" disabled={code.length !== 4} className="shrink-0">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        go(code);
+      }}
+      className="flex items-end gap-3"
+    >
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="room-code" className="font-pixel fs-1">
+          ROOM CODE
+        </Label>
+        <InputOTP
+          id="room-code"
+          maxLength={4}
+          value={code}
+          onChange={(value) => setCode(value.toUpperCase())}
+          onComplete={(value: string) => go(value.toUpperCase())}
+          pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
+          inputMode="text"
+          autoComplete="off"
+          aria-label="방 코드 4자리"
+        >
+          <InputOTPGroup>
+            {[0, 1, 2, 3].map((i) => (
+              <InputOTPSlot key={i} index={i} />
+            ))}
+          </InputOTPGroup>
+        </InputOTP>
+      </div>
+      <Button type="submit" variant="secondary" className="h-12" disabled={code.length !== 4}>
+        <Play />
         입장
       </Button>
     </form>

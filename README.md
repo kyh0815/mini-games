@@ -1,6 +1,6 @@
-# mini-games
+# MINI ARCADE
 
-팀원들과 함께 즐기는 미니게임 모음 홈페이지. 방을 만들고 초대 링크(또는 4자리 코드)를 공유하면 각자 자기 기기로 접속해 함께 플레이합니다.
+팀원들과 함께 즐기는 실시간 미니게임 오락실. 방을 만들고 초대 링크(또는 4자리 코드)를 공유하면 각자 자기 기기로 접속해 함께 플레이합니다.
 
 ## 게임
 
@@ -15,7 +15,10 @@
 
 ```bash
 npm install
-npm run dev   # http://localhost:3000
+npm run dev        # http://localhost:3000
+npm run lint
+npm run typecheck
+npm test           # 게임 규칙 단위 테스트
 ```
 
 ## 배포할 때 주의
@@ -31,11 +34,24 @@ npm run dev   # http://localhost:3000
 
 - `src/lib/games.ts` — 게임 목록과 규칙 설명
 - `src/lib/types.ts` — 서버가 화면에 내려보내는 상태의 타입
+- `src/lib/audio.ts` — 배경 음악과 효과음. 음원 파일 없이 Web Audio로 합성합니다.
 - `src/server/rooms.ts` — 방 저장소, 입장/퇴장, 타이머, 상태 전파
 - `src/server/games/` — 게임별 규칙. `view()`가 플레이어마다 보여도 되는 정보만 골라 보냅니다.
 - `src/server/data/` — 단어와 타자 문장
 - `src/app/api/rooms/` — 방 만들기, 입장, 동작 전송, 상태 스트림(SSE)
+- `src/components/ui/` — shadcn/ui 컴포넌트 (오락실 테마로 수정)
+- `src/components/arcade/` — 배경, 오락기 카드, LED 타이머 등 테마 전용 컴포넌트
 - `src/components/games/` — 게임별 화면
+
+## 디자인
+
+네온 오락실 테마입니다. 색과 글꼴은 `src/app/globals.css`의 변수로 관리하고, 게임마다 대표색(`--game`)이 `data-game` 속성으로 바뀝니다. 픽셀 폰트 크기는 `fs-1` ~ `fs-6` 유틸리티를 씁니다.
+
+## 보안
+
+- 참가자 세션은 방마다 발급되는 HttpOnly · SameSite=Strict 쿠키로만 주고받습니다.
+- 숨겨야 하는 정보(라이어 게임의 제시어 등)는 해당 플레이어에게 아예 전송하지 않습니다.
+- 방 만들기와 입장에는 IP별 횟수 제한이 있고, 프로덕션 응답에는 CSP 등 보안 헤더가 붙습니다.
 
 ### 게임 추가하기
 
@@ -50,4 +66,11 @@ npm run dev   # http://localhost:3000
 
 ## 스택
 
-Next.js 16 · React 19 · TypeScript · Tailwind CSS 4
+Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui (Radix)
+
+## 글꼴과 아이콘
+
+- [Galmuri](https://github.com/quiple/galmuri) — SIL Open Font License 1.1
+- [Pretendard](https://github.com/orioncactus/pretendard) — SIL Open Font License 1.1
+- [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) — SIL Open Font License 1.1
+- [Pixelarticons](https://github.com/halfmage/pixelarticons) — MIT

@@ -1,55 +1,98 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Panel, Screen } from "@/components/arcade/panel";
+import { PixelAvatar } from "@/components/arcade/pixel-avatar";
+import { LedTimer } from "@/components/arcade/timer";
+import { Skull, WarningDiamond } from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { RoomView } from "@/lib/types";
-import { Button, Card, Field, Input, Select, TimeBar, cx } from "../ui";
-import { BackToLobby, Lobby, type GameProps } from "./shared";
+import { cn } from "@/lib/utils";
+import { Lobby, Option, Result, type GameProps } from "./shared";
 
 type View = Extract<RoomView, { game: "wordchain" }>;
 
+function Lives({ count, max }: { count: number; max: number }) {
+  if (count <= 0) {
+    return (
+      <span className="font-pixel flex items-center gap-1 fs-1 text-muted-foreground">
+        <Skull className="size-4" /> OUT
+      </span>
+    );
+  }
+  return (
+    <span className="flex gap-0.5" aria-label={`목숨 ${count}개`}>
+      {Array.from({ length: max }, (_, i) => (
+        <svg
+          key={i}
+          viewBox="0 0 7 6"
+          aria-hidden
+          shapeRendering="crispEdges"
+          className={cn("h-3.5 w-4", i < count ? "fill-neon-red" : "fill-muted")}
+        >
+          <path d="M1 0h2v1h1V0h2v1h1v2H6v1H5v1H4v1H3V5H2V4H1V3H0V1h1z" />
+        </svg>
+      ))}
+    </span>
+  );
+}
+
 export function WordChain({ view, now, send, nameOf }: GameProps<View>) {
   const s = view.state;
-  const [turnSeconds, setTurnSeconds] = useState(15);
+  const [turnSeconds, setTurnSeconds] = useState("15");
   const [text, setText] = useState("");
 
   if (s.phase === "lobby") {
     return (
-      <Lobby view={view} onStart={() => send({ type: "start", turnSeconds })}>
-        <Field label="제한 시간">
-          <Select value={turnSeconds} onChange={(e) => setTurnSeconds(Number(e.target.value))}>
-            {[10, 15, 20].map((n) => (
-              <option key={n} value={n}>
+      <Lobby
+        view={view}
+        send={send}
+        onStart={() => send({ type: "start", turnSeconds: Number(turnSeconds) })}
+      >
+        <Option label="제한 시간">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            aria-label="제한 시간"
+            value={turnSeconds}
+            onValueChange={(v) => v && setTurnSeconds(v)}
+          >
+            {["10", "15", "20"].map((n) => (
+              <ToggleGroupItem key={n} value={n}>
                 {n}초
-              </option>
+              </ToggleGroupItem>
             ))}
-          </Select>
-        </Field>
+          </ToggleGroup>
+        </Option>
       </Lobby>
     );
   }
 
   const players = (
-    <ul className="flex flex-wrap gap-2">
+    <ul className="flex flex-col gap-2">
       {s.order.map((id) => {
         const out = s.lives[id] <= 0;
+        const turn = s.turnId === id;
         return (
           <li
             key={id}
-            className={cx(
-              "flex flex-col rounded-lg border px-3 py-2 text-sm",
-              s.turnId === id
-                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950"
-                : "border-zinc-200 dark:border-zinc-800",
-              out && "opacity-40",
+            aria-current={turn || undefined}
+            className={cn(
+              "flex items-center gap-3 border-2 px-3 py-2 transition-colors",
+              turn
+                ? "border-game bg-game/15 shadow-[0_0_14px_color-mix(in_oklch,var(--game)_40%,transparent)]"
+                : "border-border bg-ink/50",
+              out && "opacity-45",
             )}
           >
-            <span className="max-w-28 truncate font-medium">
+            <PixelAvatar seed={id} className="size-7" />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
               {nameOf(id)}
-              {id === view.you && " (나)"}
+              {id === view.you && <span className="ml-1.5 text-xs text-muted-foreground">나</span>}
             </span>
-            <span className="text-xs" aria-label={`목숨 ${Math.max(0, s.lives[id])}개`}>
-              {out ? "탈락" : "❤️".repeat(s.lives[id]) + "🤍".repeat(s.maxLives - s.lives[id])}
-            </span>
+            <Lives count={s.lives[id]} max={s.maxLives} />
           </li>
         );
       })}
@@ -57,21 +100,24 @@ export function WordChain({ view, now, send, nameOf }: GameProps<View>) {
   );
 
   if (s.phase === "result") {
+    const iPlayed = s.order.includes(view.you);
     return (
-      <Card className="flex flex-col items-center gap-5 text-center">
-        <p className="text-2xl font-semibold">
-          {s.winnerId ? `🏆 ${nameOf(s.winnerId)} 우승!` : "승자 없이 끝났습니다"}
-        </p>
+      <Result
+        view={view}
+        send={send}
+        tone={!s.winnerId || !iPlayed ? "neutral" : s.winnerId === view.you ? "win" : "lose"}
+        title={s.winnerId ? `${nameOf(s.winnerId)} WIN!` : "NO WINNER"}
+        subtitle={s.winnerId ? "마지막까지 살아남았습니다." : undefined}
+      >
         {players}
-        <BackToLobby view={view} send={send} />
-      </Card>
+      </Result>
     );
   }
 
   const myTurn = s.turnId === view.you;
   const last = s.chain[s.chain.length - 1];
-  const canObject =
-    !!last && s.starts !== null && last.playerId !== view.you && s.lives[view.you] > 0;
+  const linked = !!last && s.starts !== null;
+  const canObject = linked && last.playerId !== view.you && s.lives[view.you] > 0;
   const objected = s.objections.includes(view.you);
 
   const submit = async (e: FormEvent) => {
@@ -81,66 +127,97 @@ export function WordChain({ view, now, send, nameOf }: GameProps<View>) {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <Card className="flex flex-col gap-5">
-        {players}
-        {s.lastEvent && (
-          <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-            {s.lastEvent.type === "timeout"
-              ? `⏰ ${nameOf(s.lastEvent.playerId)} 님이 시간 초과로 목숨을 잃었습니다.`
-              : `🙅 '${s.lastEvent.word}'은(는) 무효가 되어 ${nameOf(s.lastEvent.playerId)} 님이 목숨을 잃었습니다.`}
-          </p>
-        )}
-        <div className="flex flex-col items-center gap-2 py-2 text-center">
-          {s.starts && last ? (
-            <>
-              <p className="text-4xl font-bold sm:text-5xl">
-                {last.word.slice(0, -1)}
-                <span className="text-indigo-600 dark:text-indigo-400">{last.word.slice(-1)}</span>
-              </p>
-              <p className="text-sm text-zinc-500">
-                {nameOf(last.playerId)} · 다음 단어는 &lsquo;{s.starts.join("’ 또는 ‘")}&rsquo;(으)로 시작
-              </p>
-            </>
+    <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
+      <Screen>
+        <div className="flex flex-col gap-6 p-5 sm:p-7">
+          <div
+            role="status"
+            className={cn(
+              "flex min-h-10 items-center gap-2 border-2 px-3 text-sm",
+              s.lastEvent ? "animate-shake border-neon-red bg-neon-red/10 text-neon-red" : "border-transparent",
+            )}
+          >
+            {s.lastEvent && (
+              <>
+                <WarningDiamond className="size-5 shrink-0" />
+                {s.lastEvent.type === "timeout"
+                  ? `${nameOf(s.lastEvent.playerId)} 님이 시간 초과로 목숨을 잃었습니다.`
+                  : `'${s.lastEvent.word}' 무효! ${nameOf(s.lastEvent.playerId)} 님이 목숨을 잃었습니다.`}
+              </>
+            )}
+          </div>
+
+          <div className="flex min-h-36 flex-col items-center justify-center gap-3 text-center">
+            {linked ? (
+              <>
+                <p key={last.word} className="font-pixel animate-pop fs-4 sm:fs-6">
+                  {last.word.slice(0, -1)}
+                  <span className="text-game neon-text">{last.word.slice(-1)}</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {nameOf(last.playerId)} · 다음은{" "}
+                  {s.starts!.map((ch, i) => (
+                    <span key={ch}>
+                      {i > 0 && " 또는 "}
+                      <b className="font-pixel fs-15 text-game">{ch}</b>
+                    </span>
+                  ))}
+                  (으)로 시작
+                </p>
+              </>
+            ) : (
+              <p className="font-pixel animate-pop fs-2 text-game neon-text">아무 단어로나 시작!</p>
+            )}
+          </div>
+
+          <LedTimer now={now} deadline={s.deadline} totalMs={s.turnSeconds * 1000} />
+
+          {myTurn ? (
+            <form onSubmit={submit} className="flex gap-3">
+              <Input
+                autoFocus
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={s.starts ? `'${s.starts[0]}'(으)로 시작하는 단어` : "아무 단어"}
+                aria-label="단어"
+                maxLength={10}
+                autoComplete="off"
+              />
+              <Button type="submit" variant="game">
+                제출
+              </Button>
+            </form>
           ) : (
-            <p className="text-xl text-zinc-500">아무 단어로나 시작하세요</p>
+            <p className="flex h-11 items-center justify-center text-sm text-muted-foreground">
+              {nameOf(s.turnId)} 님의 차례입니다.
+            </p>
           )}
+
+          <div className="flex min-h-9 flex-wrap items-center justify-between gap-3">
+            <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
+              {s.chain.slice(-6, -1).map((entry, i) => (
+                <li key={`${entry.word}-${i}`} className="flex items-center gap-1.5">
+                  {entry.word}
+                  <span className="text-game">▶</span>
+                </li>
+              ))}
+            </ol>
+            {canObject && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={objected}
+                onClick={() => send({ type: "object" })}
+              >
+                {objected ? "이의 제기함" : "이의 제기"} {s.objections.length}/{s.objectionsNeeded}
+              </Button>
+            )}
+          </div>
         </div>
-        <TimeBar now={now} deadline={s.deadline} totalMs={s.turnSeconds * 1000} />
-        {myTurn ? (
-          <form onSubmit={submit} className="flex gap-2">
-            <Input
-              autoFocus
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="내 차례! 단어 입력"
-              maxLength={10}
-              autoComplete="off"
-            />
-            <Button type="submit">제출</Button>
-          </form>
-        ) : (
-          <p className="text-center text-sm text-zinc-500">{nameOf(s.turnId)} 님의 차례입니다.</p>
-        )}
-        {canObject && (
-          <Button variant="ghost" disabled={objected} onClick={() => send({ type: "object" })}>
-            {objected ? "이의 제기함" : `'${last.word}' 이의 제기`} ({s.objections.length}/
-            {s.objectionsNeeded})
-          </Button>
-        )}
-      </Card>
-      {s.chain.length > 1 && (
-        <Card>
-          <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-zinc-500">
-            {s.chain.map((entry, i) => (
-              <li key={`${entry.word}-${i}`}>
-                {i > 0 && <span className="mr-2">→</span>}
-                {entry.word}
-              </li>
-            ))}
-          </ol>
-        </Card>
-      )}
+      </Screen>
+      <Panel label="PLAYERS" className="self-start">
+        <div className="p-3">{players}</div>
+      </Panel>
     </div>
   );
 }

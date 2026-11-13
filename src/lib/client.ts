@@ -14,7 +14,6 @@ export async function post<T = Record<string, unknown>>(url: string, body: unkno
 }
 
 const NAME_KEY = "mg:name";
-const tokenKey = (code: string) => `mg:token:${code.toUpperCase()}`;
 
 // 시크릿 창 등에서는 localStorage 접근이 막힐 수 있어 모두 감쌉니다.
 function read(key: string): string | null {
@@ -35,5 +34,3 @@ function write(key: string, value: string): void {
 
 export const savedName = () => read(NAME_KEY) ?? "";
 export const saveName = (name: string) => write(NAME_KEY, name);
-export const savedToken = (code: string) => read(tokenKey(code));
-export const saveToken = (code: string, token: string) => write(tokenKey(code), token);

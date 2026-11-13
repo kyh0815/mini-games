@@ -17,9 +17,16 @@ export type Room = {
   players: Player[];
   // 게임별 상태. 각 게임 모듈만 내부 구조를 압니다.
   state: unknown;
-  listeners: Map<symbol, { playerId: string; push: (view: RoomView) => void }>;
+  listeners: Map<symbol, Listener>;
   timer: ReturnType<typeof setTimeout> | null;
   lastActive: number;
+};
+
+type Listener = {
+  playerId: string;
+  push: (view: RoomView) => void;
+  /** 방에서 내보낼 때 연결을 닫습니다. */
+  end: () => void;
 };
 
 export class GameError extends Error {}
@@ -166,9 +173,10 @@ export function subscribe(
   room: Room,
   player: Player,
   push: (view: RoomView) => void,
+  end: () => void,
 ): () => void {
   const key = Symbol();
-  room.listeners.set(key, { playerId: player.id, push });
+  room.listeners.set(key, { playerId: player.id, push, end });
   player.connections += 1;
   room.lastActive = Date.now();
   broadcast(room);
@@ -183,18 +191,33 @@ export function subscribe(
   };
 }
 
+function inLobby(room: Room): boolean {
+  return (room.state as { phase?: string }).phase === "lobby";
+}
+
+function passHost(room: Room, from: Player): void {
+  if (room.hostId !== from.id) return;
+  const next = room.players.find((p) => p !== from && p.connections > 0);
+  if (next) room.hostId = next.id;
+}
+
 /** 새로고침은 봐주고, 정말 나간 사람만 정리합니다. */
 function handleGone(room: Room, player: Player): void {
   if (player.connections > 0 || !room.players.includes(player)) return;
-  const inLobby = (room.state as { phase?: string }).phase === "lobby";
-  if (inLobby) {
-    room.players = room.players.filter((p) => p !== player);
-  }
-  if (room.hostId === player.id) {
-    const next = room.players.find((p) => p.connections > 0);
-    if (next) room.hostId = next.id;
-  }
+  passHost(room, player);
+  if (inLobby(room)) room.players = room.players.filter((p) => p !== player);
   broadcast(room);
+}
+
+/** 플레이어의 연결을 모두 닫습니다. 게임 중이면 기록이 깨지지 않게 명단에는 남깁니다. */
+function eject(room: Room, player: Player): void {
+  passHost(room, player);
+  if (inLobby(room)) room.players = room.players.filter((p) => p !== player);
+  // 다시 들어오지 못하도록 토큰을 무효화합니다.
+  player.token = randomBytes(24).toString("hex");
+  for (const listener of [...room.listeners.values()]) {
+    if (listener.playerId === player.id) listener.end();
+  }
 }
 
 export function dispatch(room: Room, player: Player, action: unknown): void {
@@ -204,7 +227,15 @@ export function dispatch(room: Room, player: Player, action: unknown): void {
   const a = action as GameAction;
   const isHost = room.hostId === player.id;
   room.lastActive = Date.now();
-  if (a.type === "reset") {
+  if (a.type === "leave") {
+    eject(room, player);
+  } else if (a.type === "kick") {
+    if (!isHost) throw new GameError("방장만 할 수 있습니다.");
+    if (!inLobby(room)) throw new GameError("대기실에서만 내보낼 수 있습니다.");
+    const target = room.players.find((p) => p.id === a.target);
+    if (!target || target === player) throw new GameError("내보낼 사람을 찾을 수 없습니다.");
+    eject(room, target);
+  } else if (a.type === "reset") {
     if (!isHost) throw new GameError("방장만 할 수 있습니다.");
     clearRoomTimer(room);
     room.state = gameModules[room.game].init();
